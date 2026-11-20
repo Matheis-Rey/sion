@@ -1,1 +1,97 @@
+:root {
+  --vert: #0F552B;
+  --dore: #BB9129;
+  --creme: #FCF4E9;
+  --presence: #198754;
+  --absence: #DC3545;
+  --encre: #1F2A24;
+  --dore-fonce: #7A5C12;
+}
 
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--creme);
+  color: var(--encre);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.entete {
+  background: var(--creme);
+  color: var(--dore-fonce);
+  padding: 20px 20px 16px;
+  text-align: center;
+  border-bottom: 4px solid var(--dore);
+}
+
+.logo {
+  display: block;
+  width: 180px;
+  max-width: 60%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.slogan {
+  margin: 4px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 1.05rem;
+}
+
+.contenu {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.carte {
+  border: 1px solid var(--dore);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.carte h2 {
+  margin: 0 0 10px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--dore-fonce);
+}
+
+.carte p { margin: 0; }
+
+.ligne {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--dore);
+}
+
+.carte h2 + .ligne { border-top: 0; }
+
+.etat { font-weight: 600; text-align: right; }
+.etat.ok { color: var(--presence); }
+.etat.erreur { color: var(--absence); }
+.etat.attente { color: var(--dore-fonce); }
+
+.bouton {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--vert);
+  color: var(--creme);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.bouton:focus-visible {
+  outline: 3px solid var(--dore);
+  outline-offset: 2px;
+}
