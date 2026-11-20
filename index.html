@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0F552B">
+<title>SION</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="entete">
+  <img class="logo" src="icons/logo.webp" alt="Logo de l'Église SION" width="180" height="180">
+  <p class="slogan">Lieu du renouvellement de l'intelligence</p>
+</header>
+
+<main class="contenu">
+  <section class="carte">
+    <h2>Bienvenue</h2>
+    <p>Les fondations sont en place. Les comptes et les fiches des membres arrivent à l'étape suivante.</p>
+  </section>
+
+  <section class="carte">
+    <h2>État de l'application</h2>
+    <div class="ligne">
+      <span>Réseau</span>
+      <span id="etat-reseau" class="etat attente">Vérification…</span>
+    </div>
+    <div class="ligne">
+      <span>Serveur Supabase</span>
+      <span id="etat-serveur" class="etat attente">Vérification…</span>
+    </div>
+  </section>
+
+  <button id="btn-verifier" class="bouton" type="button">Vérifier à nouveau</button>
+</main>
+
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
