@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0F552B">
 <title>SION</title>
 <link rel="manifest" href="manifest.json">
@@ -11,6 +11,12 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+
+<!-- Barre du haut (quand on est connecté) -->
+<header id="barre" class="barre" hidden>
+  <img class="logo-barre" src="icons/logo.webp" alt="SION" width="420" height="293">
+  <button id="btn-deconnexion" class="bouton-texte" type="button">Déconnexion</button>
+</header>
 
 <!-- Chargement -->
 <div id="vue-chargement" class="vue vue-centree">
@@ -63,11 +69,6 @@
 
 <!-- Ma fiche -->
 <div id="vue-fiche" class="vue" hidden>
-  <header class="barre">
-    <img class="logo-barre" src="icons/logo.webp" alt="SION" width="420" height="293">
-    <button id="btn-deconnexion" class="bouton-texte" type="button">Déconnexion</button>
-  </header>
-
   <main class="contenu">
     <section class="carte carte-profil">
       <div id="avatar" class="avatar" aria-hidden="true"></div>
@@ -95,14 +96,19 @@
       <label for="f-situation">Situation matrimoniale</label>
       <select id="f-situation"></select>
 
-      <label for="f-commune">Commune</label>
-      <input id="f-commune" type="text" maxlength="60">
+      <label for="f-commune">Commune ou localité</label>
+      <select id="f-commune"></select>
 
       <label for="f-quartier">Quartier</label>
       <input id="f-quartier" type="text" maxlength="60">
 
-      <label class="ligne-case"><input id="f-bapteme-eau" type="checkbox"> Baptême d'eau reçu</label>
-      <label class="ligne-case"><input id="f-bapteme-esprit" type="checkbox"> Baptême du Saint-Esprit reçu</label>
+      <div id="f-baptemes">
+        <label for="f-bapteme-eau">Baptême d'eau</label>
+        <select id="f-bapteme-eau"></select>
+
+        <label for="f-bapteme-esprit">Baptême du Saint-Esprit</label>
+        <select id="f-bapteme-esprit"></select>
+      </div>
 
       <p id="msg-form" class="message" role="alert" hidden></p>
       <div class="actions">
@@ -120,6 +126,111 @@
     </section>
   </main>
 </div>
+
+<!-- Liste des membres -->
+<div id="vue-membres" class="vue" hidden>
+  <main class="contenu">
+    <h1 class="titre-page">Membres</h1>
+
+    <label class="sr-only" for="recherche">Rechercher un membre</label>
+    <input id="recherche" type="search" placeholder="Rechercher un nom, une commune…" autocomplete="off">
+
+    <div id="zone-filtre" hidden>
+      <label for="filtre-statut">Afficher</label>
+      <select id="filtre-statut">
+        <option value="tous">Tous</option>
+        <option value="membre">Membres</option>
+        <option value="visiteur">Personnes de passage</option>
+      </select>
+    </div>
+
+    <button id="btn-ajouter" class="bouton" type="button" hidden>Ajouter une personne</button>
+
+    <p id="msg-membres" class="message" role="status" hidden></p>
+    <p id="compteur" class="aide"></p>
+    <ul id="liste-membres" class="liste"></ul>
+  </main>
+</div>
+
+<!-- Détail d'un membre -->
+<div id="vue-detail" class="vue" hidden>
+  <main class="contenu">
+    <button id="btn-retour-liste" class="bouton-texte" type="button">← Retour à la liste</button>
+    <section class="carte carte-profil">
+      <div id="d-avatar" class="avatar" aria-hidden="true"></div>
+      <h1 id="d-nom"></h1>
+      <p id="d-sous" class="fonctions"></p>
+    </section>
+    <section class="carte">
+      <h2>Informations</h2>
+      <dl id="d-infos" class="infos"></dl>
+    </section>
+  </main>
+</div>
+
+<!-- Ajout d'une personne -->
+<div id="vue-ajout" class="vue" hidden>
+  <main class="contenu">
+    <form id="form-ajout" class="carte" novalidate>
+      <h2>Nouvelle fiche</h2>
+
+      <label class="ligne-case"><input id="a-passage" type="checkbox"> De passage (visiteur)</label>
+      <p id="a-aide-passage" class="aide" hidden>Une personne de passage n'a ni compte, ni carte de membre, ni accès à l'application.</p>
+
+      <label for="a-prenom">Prénom</label>
+      <input id="a-prenom" type="text" maxlength="60" autocomplete="off">
+
+      <label for="a-nom">Nom</label>
+      <input id="a-nom" type="text" maxlength="60" autocomplete="off">
+
+      <label for="a-tel">Téléphone</label>
+      <div class="champ-tel">
+        <span class="prefixe">+225</span>
+        <input id="a-tel" type="tel" inputmode="numeric" autocomplete="off" placeholder="07 12 34 56 78">
+      </div>
+
+      <label for="a-situation">Situation matrimoniale</label>
+      <select id="a-situation"></select>
+
+      <label for="a-bapteme-eau">Baptême d'eau</label>
+      <select id="a-bapteme-eau"></select>
+
+      <label for="a-bapteme-esprit">Baptême du Saint-Esprit</label>
+      <select id="a-bapteme-esprit"></select>
+
+      <label for="a-commune">Commune ou localité</label>
+      <select id="a-commune"></select>
+
+      <label for="a-quartier">Quartier</label>
+      <input id="a-quartier" type="text" maxlength="60" autocomplete="off">
+
+      <div id="a-membre-seulement">
+        <label for="a-email">Adresse e-mail (facultatif)</label>
+        <input id="a-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254">
+
+        <label for="a-dept">Département principal</label>
+        <select id="a-dept"></select>
+
+        <details class="deroulant">
+          <summary>Départements secondaires</summary>
+          <div id="a-secondaires"></div>
+        </details>
+      </div>
+
+      <p id="msg-ajout" class="message" role="alert" hidden></p>
+      <div class="actions">
+        <button id="btn-creer" class="bouton" type="submit">Enregistrer la fiche</button>
+        <button id="btn-annuler-ajout" class="bouton bouton-secondaire" type="button">Annuler</button>
+      </div>
+    </form>
+  </main>
+</div>
+
+<!-- Navigation du bas -->
+<nav id="onglets" class="onglets" aria-label="Navigation principale" hidden>
+  <button id="onglet-fiche" class="onglet" type="button">Ma fiche</button>
+  <button id="onglet-membres" class="onglet" type="button">Membres</button>
+</nav>
 
 <script src="js/config.js"></script>
 <script src="js/supabase.js"></script>
