@@ -171,7 +171,7 @@
 
   function listerMembres() {
     return Promise.all([
-      client.from("members").select("id, nom, prenom, situation_matrimoniale, commune, quartier, statut, compte_actif"),
+      client.from("members").select("id, nom, prenom, situation_matrimoniale, commune, quartier, photo_path, statut, compte_actif"),
       client.from("member_departments").select("member_id, principal, departments(nom)")
     ]).then(function (r) {
       var membres = verifier(r[0]);
