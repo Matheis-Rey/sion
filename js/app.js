@@ -2,13 +2,19 @@
   "use strict";
 
   var SITUATIONS = ["Marié(e)", "Célibataire", "Veuf(ve)", "Concubinage", "Fiancé(e)"];
-  var VUES = ["chargement", "connexion", "message", "fiche", "membres", "detail", "ajout"];
-  var VUES_CONNECTEES = ["fiche", "membres", "detail", "ajout"];
+  var VUES = ["chargement", "connexion", "message", "fiche", "membres", "detail", "ajout", "photo"];
+  var VUES_CONNECTEES = ["fiche", "membres", "detail", "ajout", "photo"];
   var VUES_AVEC_ONGLETS = ["fiche", "membres", "detail"];
+  var PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  var PHOTO_MAX = 10 * 1024 * 1024;
 
   var etat = vide();
   var reference = { communes: null, departements: null };
   var annuaire = { membres: [], charge: false };
+  var photos = { urls: {}, horodatage: 0 };
+  var detailCourant = null;
+  var modeFiche = { type: "creation" };
+  var cible = null;
 
   function vide() {
     return { membre: null, prive: null, fonctions: [], departements: [], permissions: [] };
@@ -176,6 +182,41 @@
     return "";
   }
 
+  /* ---------- Photos de profil (affichage) ---------- */
+
+  function remplirAvatar(element, membre) {
+    element.textContent = "";
+    var url = membre.photo_path ? photos.urls[membre.photo_path] : null;
+    if (url) {
+      var img = document.createElement("img");
+      img.src = url;
+      img.alt = "";
+      element.appendChild(img);
+    } else {
+      element.textContent = initiales(membre);
+    }
+  }
+
+  /* Retourne une promesse : vrai si de nouvelles photos sont disponibles */
+  function chargerPhotos(chemins) {
+    if (Date.now() - photos.horodatage > 50 * 60 * 1000) {
+      photos.urls = {};
+      photos.horodatage = Date.now();
+    }
+    var manquants = chemins.filter(function (c, i) {
+      return c && !photos.urls[c] && chemins.indexOf(c) === i;
+    });
+    if (!manquants.length) {
+      return Promise.resolve(false);
+    }
+    return SionApi.urlsPhotos(manquants)
+      .then(function (carte) {
+        Object.keys(carte).forEach(function (c) { photos.urls[c] = carte[c]; });
+        return true;
+      })
+      .catch(function () { return false; });
+  }
+
   /* ---------- Connexion ---------- */
 
   function initConnexion() {
@@ -223,6 +264,9 @@
     SionApi.deconnecter().catch(function () {}).then(function () {
       etat = vide();
       annuaire = { membres: [], charge: false };
+      photos = { urls: {}, horodatage: 0 };
+      detailCourant = null;
+      cible = null;
       $("champ-mdp").value = "";
       afficherMessage($("msg-connexion"), "");
       montrer("connexion");
@@ -278,7 +322,13 @@
     var m = etat.membre;
     var p = etat.prive || {};
 
-    $("avatar").textContent = initiales(m);
+    remplirAvatar($("avatar"), m);
+    chargerPhotos([m.photo_path]).then(function (nouveau) {
+      if (nouveau && etat.membre && etat.membre.id === m.id) {
+        remplirAvatar($("avatar"), etat.membre);
+      }
+    });
+
     $("fiche-nom").textContent = nomComplet(m);
     $("fiche-fonctions").textContent = etat.fonctions.length ? etat.fonctions.join(" · ") : "Membre";
 
@@ -466,6 +516,10 @@
         annuaire.membres = liste;
         annuaire.charge = true;
         dessinerListe();
+        return chargerPhotos(liste.map(function (m) { return m.photo_path; }));
+      })
+      .then(function (nouveau) {
+        if (nouveau) { dessinerListe(); }
       })
       .catch(function (err) {
         $("compteur").textContent = "";
@@ -509,7 +563,9 @@
       var bouton = creer("button", "item-membre");
       bouton.type = "button";
 
-      bouton.appendChild(creer("span", "avatar avatar-petit", initiales(m)));
+      var avatar = creer("span", "avatar avatar-petit");
+      remplirAvatar(avatar, m);
+      bouton.appendChild(avatar);
 
       var texteBloc = creer("span", "item-texte");
       var titre = creer("strong", null, nomComplet(m));
@@ -538,10 +594,19 @@
   function ouvrirDetail(id) {
     var m = annuaire.membres.filter(function (x) { return x.id === id; })[0];
     if (!m) { return; }
+    detailCourant = m;
 
-    $("d-avatar").textContent = initiales(m);
+    remplirAvatar($("d-avatar"), m);
+    chargerPhotos([m.photo_path]).then(function (nouveau) {
+      if (nouveau && detailCourant === m) { remplirAvatar($("d-avatar"), m); }
+    });
+
     $("d-nom").textContent = nomComplet(m);
     $("d-sous").textContent = badge(m.statut) || "Membre";
+    afficherMessage($("msg-detail"), "");
+
+    var gerer = peutGerer();
+    $("d-actions").hidden = !gerer;
 
     var base = [
       ["Lieu d'habitation", texte(lieu(m))],
@@ -550,11 +615,10 @@
     remplirListe($("d-infos"), base);
     montrer("detail");
 
-    var gerer = peutGerer();
     var requete = gerer ? SionApi.detailPrive(id) : SionApi.contactVisible(id);
 
     requete.then(function (c) {
-      if (!c) { return; }
+      if (!c || detailCourant !== m) { return; }
       var lignes = base.slice();
       if (gerer) {
         lignes.push(["Téléphone", formaterTelephone(c.telephone)]);
@@ -577,7 +641,101 @@
     });
   }
 
-  /* ---------- Ajout d'une personne ---------- */
+  /* ---------- Photo : choix, cadrage, envoi ---------- */
+
+  function messagePhoto(texteMessage, type) {
+    var zone = (cible && cible.retour === "detail") ? $("msg-detail") : $("msg-fiche");
+    afficherMessage(zone, texteMessage, type);
+  }
+
+  function demarrerPhoto(membre, retour) {
+    cible = { membre: membre, retour: retour };
+    afficherMessage($("msg-fiche"), "");
+    afficherMessage($("msg-detail"), "");
+    $("champ-photo").value = "";
+    $("champ-photo").click();
+  }
+
+  function fermerPhoto() {
+    SionPhoto.reinitialiser();
+    montrer(cible && cible.retour === "detail" ? "detail" : "fiche");
+  }
+
+  function initPhoto() {
+    $("btn-photo").addEventListener("click", function () {
+      demarrerPhoto(etat.membre, "fiche");
+    });
+    $("btn-photo-detail").addEventListener("click", function () {
+      if (detailCourant) { demarrerPhoto(detailCourant, "detail"); }
+    });
+
+    $("champ-photo").addEventListener("change", function () {
+      var fichier = this.files && this.files[0];
+      if (!fichier || !cible) { return; }
+
+      if (PHOTO_TYPES.indexOf(fichier.type) === -1) {
+        messagePhoto("Format non pris en charge. Choisissez une photo JPG, PNG ou WebP.");
+        return;
+      }
+      if (fichier.size > PHOTO_MAX) {
+        messagePhoto("La photo ne doit pas dépasser 10 Mo.");
+        return;
+      }
+
+      SionPhoto.charger(fichier)
+        .then(function () {
+          afficherMessage($("msg-photo"), "");
+          montrer("photo");
+          SionPhoto.dessiner();
+        })
+        .catch(function () {
+          messagePhoto("Cette image ne peut pas être lue. Essayez une autre photo.");
+        });
+    });
+
+    $("btn-photo-annuler").addEventListener("click", fermerPhoto);
+
+    $("btn-photo-ok").addEventListener("click", function () {
+      var bouton = this;
+      bouton.disabled = true;
+      bouton.textContent = "Enregistrement…";
+      afficherMessage($("msg-photo"), "");
+
+      SionPhoto.exporter()
+        .then(function (blob) {
+          return SionApi.envoyerPhoto(cible.membre.id, blob, cible.membre.photo_path);
+        })
+        .then(function (chemin) {
+          cible.membre.photo_path = chemin;
+          if (etat.membre && etat.membre.id === cible.membre.id) {
+            etat.membre.photo_path = chemin;
+          }
+          annuaire.charge = false;
+          return chargerPhotos([chemin]);
+        })
+        .then(function () {
+          var retour = cible.retour;
+          SionPhoto.reinitialiser();
+          if (retour === "detail") {
+            remplirAvatar($("d-avatar"), cible.membre);
+            montrer("detail");
+          } else {
+            remplirAvatar($("avatar"), etat.membre);
+            montrer("fiche");
+          }
+          messagePhoto("La photo a été enregistrée.", "ok");
+        })
+        .catch(function (err) {
+          afficherMessage($("msg-photo"), SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Enregistrer la photo";
+        });
+    });
+  }
+
+  /* ---------- Formulaire : ajout et modification d'une fiche ---------- */
 
   function formaterSaisieTelephone(valeur) {
     var chiffres = valeur.replace(/\D/g, "");
@@ -589,6 +747,7 @@
   }
 
   function basculerPassage() {
+    if (modeFiche.type !== "creation") { return; }
     var passage = $("a-passage").checked;
     $("a-membre-seulement").hidden = passage;
     $("a-aide-passage").hidden = !passage;
@@ -604,7 +763,7 @@
     }
   }
 
-  function ouvrirAjout() {
+  function preparerFormulaire() {
     $("form-ajout").reset();
     remplirSelect($("a-situation"), optionsSituations(), "Choisir…", "");
     remplirSelect($("a-bapteme-eau"), optionsOuiNon(), "Choisir…", "");
@@ -619,14 +778,125 @@
       var caseCochee = creer("input");
       caseCochee.type = "checkbox";
       caseCochee.value = d.valeur;
+      caseCochee.setAttribute("data-nom", d.libelle);
       etiquette.appendChild(caseCochee);
       etiquette.appendChild(document.createTextNode(" " + d.libelle));
       zone.appendChild(etiquette);
     });
 
     afficherMessage($("msg-ajout"), "");
+  }
+
+  function ouvrirAjout() {
+    modeFiche = { type: "creation" };
+    preparerFormulaire();
+    $("titre-fiche").textContent = "Nouvelle fiche";
+    $("btn-creer").textContent = "Enregistrer la fiche";
+    $("a-ligne-passage").hidden = false;
+    $("a-email-bloc").hidden = false;
     basculerPassage();
     montrer("ajout");
+  }
+
+  function ouvrirModification() {
+    var m = detailCourant;
+    if (!m) { return; }
+    afficherMessage($("msg-detail"), "");
+
+    SionApi.detailPrive(m.id)
+      .then(function (c) {
+        c = c || {};
+        modeFiche = { type: "modification", membre: m };
+        preparerFormulaire();
+
+        $("titre-fiche").textContent = "Modifier la fiche";
+        $("btn-creer").textContent = "Enregistrer les modifications";
+        $("a-ligne-passage").hidden = true;
+        $("a-aide-passage").hidden = true;
+        $("a-email-bloc").hidden = true;
+        $("a-membre-seulement").hidden = (m.statut !== "membre");
+
+        $("a-prenom").value = m.prenom || "";
+        $("a-nom").value = m.nom || "";
+        $("a-tel").value = formaterSaisieTelephone((c.telephone || "").replace(/^\+225/, ""));
+        remplirSelect($("a-situation"), optionsSituations(), "Choisir…", m.situation_matrimoniale || "");
+        remplirSelect($("a-commune"), optionsCommunes(), "Choisir…", m.commune || "");
+        $("a-quartier").value = m.quartier || "";
+        $("a-bapteme-eau").value = depuisBooleen(c.bapteme_eau);
+        $("a-bapteme-esprit").value = depuisBooleen(c.bapteme_esprit);
+
+        var principal = nomDepartementPrincipal(m.departements);
+        var dep = (reference.departements || []).filter(function (d) { return d.nom === principal; })[0];
+        $("a-dept").value = dep ? String(dep.id) : "";
+
+        var secondaires = m.departements
+          .filter(function (d) { return !d.principal; })
+          .map(function (d) { return d.nom; });
+        var cases = $("a-secondaires").querySelectorAll("input[type=checkbox]");
+        for (var i = 0; i < cases.length; i++) {
+          cases[i].checked = secondaires.indexOf(cases[i].getAttribute("data-nom")) !== -1;
+        }
+        mettreAJourSecondaires();
+
+        montrer("ajout");
+      })
+      .catch(function (err) {
+        afficherMessage($("msg-detail"), SionApi.messageErreur(err));
+      });
+  }
+
+  function departementsChoisis() {
+    var secondaires = [];
+    var cases = $("a-secondaires").querySelectorAll("input[type=checkbox]");
+    for (var i = 0; i < cases.length; i++) {
+      if (cases[i].checked) { secondaires.push(Number(cases[i].value)); }
+    }
+    return secondaires;
+  }
+
+  function enregistrerModification(valeurs, zone, bouton) {
+    var m = modeFiche.membre;
+
+    SionApi.modifierMembre(m.id, {
+      prenom: valeurs.prenom,
+      nom: valeurs.nom,
+      situation_matrimoniale: $("a-situation").value || null,
+      commune: $("a-commune").value || null,
+      quartier: $("a-quartier").value.trim() || null
+    })
+      .then(function () {
+        return SionApi.modifierPrive(m.id, {
+          telephone: "+225" + valeurs.chiffres,
+          bapteme_eau: versBooleen($("a-bapteme-eau").value),
+          bapteme_esprit: versBooleen($("a-bapteme-esprit").value)
+        });
+      })
+      .then(function () {
+        if (m.statut !== "membre") { return null; }
+        return SionApi.definirDepartements(
+          m.id,
+          $("a-dept").value ? Number($("a-dept").value) : null,
+          departementsChoisis()
+        );
+      })
+      .then(function () {
+        return chargerAnnuaire();
+      })
+      .then(function () {
+        ouvrirDetail(m.id);
+        afficherMessage($("msg-detail"), "Les modifications ont été enregistrées.", "ok");
+        if (etat.membre && etat.membre.id === m.id) {
+          return rafraichirFiche();
+        }
+        return null;
+      })
+      .catch(function (err) {
+        afficherMessage(zone, SionApi.messageErreur(err));
+      })
+      .then(function () {
+        bouton.disabled = false;
+        bouton.textContent = "Enregistrer les modifications";
+      });
   }
 
   function initAjout() {
@@ -635,7 +905,15 @@
     $("a-tel").addEventListener("input", function () {
       this.value = formaterSaisieTelephone(this.value);
     });
-    $("btn-annuler-ajout").addEventListener("click", function () { ouvrirMembres(); });
+    $("btn-modifier-autre").addEventListener("click", ouvrirModification);
+
+    $("btn-annuler-ajout").addEventListener("click", function () {
+      if (modeFiche.type === "modification" && detailCourant) {
+        montrer("detail");
+      } else {
+        ouvrirMembres();
+      }
+    });
 
     $("form-ajout").addEventListener("submit", function (e) {
       e.preventDefault();
@@ -645,7 +923,7 @@
       var prenom = $("a-prenom").value.trim();
       var nom = $("a-nom").value.trim();
       var chiffres = $("a-tel").value.replace(/\D/g, "");
-      var passage = $("a-passage").checked;
+      var passage = modeFiche.type === "creation" && $("a-passage").checked;
 
       if (!prenom || !nom) {
         afficherMessage(zone, "Le prénom et le nom sont obligatoires.");
@@ -656,19 +934,19 @@
         return;
       }
 
+      if (modeFiche.type === "modification") {
+        afficherMessage(zone, "");
+        bouton.disabled = true;
+        bouton.textContent = "Enregistrement…";
+        enregistrerModification({ prenom: prenom, nom: nom, chiffres: chiffres }, zone, bouton);
+        return;
+      }
+
       var doublon = annuaire.membres.some(function (m) {
         return normaliser(nomComplet(m)) === normaliser(prenom + " " + nom);
       });
       if (doublon && !window.confirm("Une fiche « " + prenom + " " + nom + " » existe déjà. Créer quand même cette nouvelle fiche ?")) {
         return;
-      }
-
-      var secondaires = [];
-      if (!passage) {
-        var cases = $("a-secondaires").querySelectorAll("input[type=checkbox]");
-        for (var i = 0; i < cases.length; i++) {
-          if (cases[i].checked) { secondaires.push(Number(cases[i].value)); }
-        }
       }
 
       afficherMessage(zone, "");
@@ -687,7 +965,7 @@
         dePassage: passage,
         email: passage ? null : ($("a-email").value.trim() || null),
         deptPrincipal: (!passage && $("a-dept").value) ? Number($("a-dept").value) : null,
-        deptSecondaires: secondaires
+        deptSecondaires: passage ? [] : departementsChoisis()
       })
         .then(function () {
           annuaire.charge = false;
@@ -713,6 +991,7 @@
     initEdition();
     initVisibilite();
     initMembres();
+    initPhoto();
     initAjout();
 
     $("btn-deconnexion").addEventListener("click", deconnexion);

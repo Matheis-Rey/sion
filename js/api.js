@@ -47,6 +47,12 @@
     if (code === "23505") {
       return "Ce numéro de téléphone est déjà enregistré.";
     }
+    if (texte.indexOf("exceeded the maximum") !== -1 || texte.indexOf("too large") !== -1) {
+      return "La photo est trop volumineuse.";
+    }
+    if (texte.indexOf("mime type") !== -1) {
+      return "Format de photo non pris en charge.";
+    }
     if (code === "23514") {
       return "Le numéro doit être au format +225 suivi de 10 chiffres.";
     }
@@ -221,6 +227,56 @@
       .then(verifier);
   }
 
+  /* ---------- Photos de profil ---------- */
+
+  function envoyerPhoto(membreId, blob, ancienChemin) {
+    var chemin = membreId + "/" + Date.now() + ".jpg";
+    var depot = client.storage.from("avatars");
+
+    return depot
+      .upload(chemin, blob, { contentType: "image/jpeg", upsert: false })
+      .then(function (r) {
+        if (r.error) { throw r.error; }
+        return modifierMembre(membreId, { photo_path: chemin }).catch(function (err) {
+          depot.remove([chemin]);
+          throw err;
+        });
+      })
+      .then(function () {
+        if (ancienChemin) {
+          depot.remove([ancienChemin]);
+        }
+        return chemin;
+      });
+  }
+
+  function urlsPhotos(chemins) {
+    if (!chemins.length) {
+      return Promise.resolve({});
+    }
+    return client.storage
+      .from("avatars")
+      .createSignedUrls(chemins, 3600)
+      .then(verifier)
+      .then(function (lignes) {
+        var carte = {};
+        lignes.forEach(function (l) {
+          if (l.signedUrl && !l.error) { carte[l.path] = l.signedUrl; }
+        });
+        return carte;
+      });
+  }
+
+  function definirDepartements(membreId, principal, secondaires) {
+    return client
+      .rpc("definir_departements", {
+        p_member: membreId,
+        p_principal: principal,
+        p_secondaires: secondaires
+      })
+      .then(verifier);
+  }
+
   window.SionApi = {
     connecter: connecter,
     deconnecter: deconnecter,
@@ -235,6 +291,9 @@
     contactVisible: contactVisible,
     detailPrive: detailPrive,
     creerFiche: creerFiche,
+    envoyerPhoto: envoyerPhoto,
+    urlsPhotos: urlsPhotos,
+    definirDepartements: definirDepartements,
     messageErreur: messageErreur
   };
 })();
