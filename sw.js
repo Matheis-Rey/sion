@@ -1,4 +1,4 @@
-var VERSION = "sion-v4";
+var VERSION = "sion-v5";
 var FICHIERS = [
   "./",
   "index.html",
@@ -7,6 +7,7 @@ var FICHIERS = [
   "js/config.js",
   "js/supabase.js",
   "js/api.js",
+  "js/photo.js",
   "js/app.js",
   "icons/icon-192.png",
   "icons/icon-512.png",

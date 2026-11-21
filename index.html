@@ -74,6 +74,7 @@
       <div id="avatar" class="avatar" aria-hidden="true"></div>
       <h1 id="fiche-nom"></h1>
       <p id="fiche-fonctions" class="fonctions"></p>
+      <button id="btn-photo" class="bouton-texte" type="button">Changer ma photo</button>
     </section>
 
     <p id="msg-fiche" class="message" role="status" hidden></p>
@@ -164,10 +165,15 @@
 <div id="vue-detail" class="vue" hidden>
   <main class="contenu">
     <button id="btn-retour-liste" class="bouton-texte" type="button">← Retour à la liste</button>
+    <p id="msg-detail" class="message" role="status" hidden></p>
     <section class="carte carte-profil">
       <div id="d-avatar" class="avatar" aria-hidden="true"></div>
       <h1 id="d-nom"></h1>
       <p id="d-sous" class="fonctions"></p>
+      <div id="d-actions" class="actions" hidden>
+        <button id="btn-photo-detail" class="bouton bouton-secondaire" type="button">Changer la photo</button>
+        <button id="btn-modifier-autre" class="bouton" type="button">Modifier cette fiche</button>
+      </div>
     </section>
     <section class="carte">
       <h2>Informations</h2>
@@ -180,9 +186,9 @@
 <div id="vue-ajout" class="vue" hidden>
   <main class="contenu">
     <form id="form-ajout" class="carte" novalidate>
-      <h2>Nouvelle fiche</h2>
+      <h2 id="titre-fiche">Nouvelle fiche</h2>
 
-      <label class="ligne-case"><input id="a-passage" type="checkbox"> De passage (visiteur)</label>
+      <label id="a-ligne-passage" class="ligne-case"><input id="a-passage" type="checkbox"> De passage (visiteur)</label>
       <p id="a-aide-passage" class="aide" hidden>Une personne de passage n'a ni compte, ni carte de membre, ni accès à l'application.</p>
 
       <label for="a-prenom">Prénom</label>
@@ -213,8 +219,10 @@
       <input id="a-quartier" type="text" maxlength="60" autocomplete="off">
 
       <div id="a-membre-seulement">
-        <label for="a-email">Adresse e-mail (facultatif)</label>
-        <input id="a-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254">
+        <div id="a-email-bloc">
+          <label for="a-email">Adresse e-mail (facultatif)</label>
+          <input id="a-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254">
+        </div>
 
         <label for="a-dept">Département principal</label>
         <select id="a-dept"></select>
@@ -234,6 +242,26 @@
   </main>
 </div>
 
+<!-- Cadrage de la photo -->
+<div id="vue-photo" class="vue" hidden>
+  <main class="contenu">
+    <section class="carte">
+      <h2>Cadrer la photo</h2>
+      <p class="aide">Faites glisser la photo pour la placer, puis utilisez le curseur pour zoomer.</p>
+      <canvas id="photo-canvas" class="canevas" width="320" height="320"></canvas>
+      <label for="photo-zoom">Zoom</label>
+      <input id="photo-zoom" type="range" min="1" max="3" step="0.01" value="1">
+      <p id="msg-photo" class="message" role="alert" hidden></p>
+      <div class="actions">
+        <button id="btn-photo-ok" class="bouton" type="button">Enregistrer la photo</button>
+        <button id="btn-photo-annuler" class="bouton bouton-secondaire" type="button">Annuler</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<input id="champ-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+
 <!-- Navigation du bas -->
 <nav id="onglets" class="onglets" aria-label="Navigation principale" hidden>
   <button id="onglet-fiche" class="onglet" type="button">Ma fiche</button>
@@ -243,6 +271,7 @@
 <script src="js/config.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/api.js"></script>
+<script src="js/photo.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
