@@ -310,6 +310,10 @@
     remplirSelect($("f-bapteme-eau"), optionsOuiNon(), "Non renseigné", depuisBooleen(p && p.bapteme_eau));
     remplirSelect($("f-bapteme-esprit"), optionsOuiNon(), "Non renseigné", depuisBooleen(p && p.bapteme_esprit));
     $("f-baptemes").hidden = !p;
+    $("f-tel-bloc").hidden = !p;
+    $("f-tel").value = formaterSaisieTelephone(
+      p && p.telephone ? p.telephone.replace(/^\+225/, "") : ""
+    );
 
     afficherMessage($("msg-form"), "");
     afficherMessage($("msg-fiche"), "");
@@ -336,6 +340,9 @@
   }
 
   function initEdition() {
+    $("f-tel").addEventListener("input", function () {
+      this.value = formaterSaisieTelephone(this.value);
+    });
     $("btn-modifier").addEventListener("click", ouvrirEdition);
     $("btn-annuler").addEventListener("click", fermerEdition);
 
@@ -350,6 +357,20 @@
         afficherMessage(zone, "Le prénom et le nom sont obligatoires.");
         return;
       }
+
+      var ancienTel = etat.prive && etat.prive.telephone ? etat.prive.telephone : null;
+      var chiffres = $("f-tel").value.replace(/\D/g, "");
+      if (etat.prive) {
+        if (chiffres === "" && ancienTel) {
+          afficherMessage(zone, "Le numéro de téléphone est obligatoire : vous devez pouvoir être joint.");
+          return;
+        }
+        if (chiffres !== "" && chiffres.length !== 10) {
+          afficherMessage(zone, "Le numéro doit comporter 10 chiffres après +225.");
+          return;
+        }
+      }
+      var nouveauTel = chiffres ? "+225" + chiffres : null;
 
       var champs = {
         prenom: prenom,
@@ -366,10 +387,14 @@
       SionApi.modifierMembre(etat.membre.id, champs)
         .then(function () {
           if (etat.prive) {
-            return SionApi.modifierPrive(etat.membre.id, {
+            var champsPrive = {
               bapteme_eau: versBooleen($("f-bapteme-eau").value),
               bapteme_esprit: versBooleen($("f-bapteme-esprit").value)
-            });
+            };
+            if (nouveauTel && nouveauTel !== ancienTel) {
+              champsPrive.telephone = nouveauTel;
+            }
+            return SionApi.modifierPrive(etat.membre.id, champsPrive);
           }
           return null;
         })

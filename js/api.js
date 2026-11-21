@@ -47,6 +47,9 @@
     if (code === "23505") {
       return "Ce numéro de téléphone est déjà enregistré.";
     }
+    if (code === "23514") {
+      return "Le numéro doit être au format +225 suivi de 10 chiffres.";
+    }
     if (texte.indexOf("permission denied") !== -1 || texte.indexOf("row-level security") !== -1) {
       return "Vous n'avez pas l'autorisation d'effectuer cette action.";
     }
