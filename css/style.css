@@ -10,6 +10,8 @@
 
 * { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--creme);
@@ -19,6 +21,19 @@ body {
   line-height: 1.5;
 }
 
+.vue { min-height: 100vh; }
+
+.vue-centree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.texte-doux { color: var(--dore-fonce); margin: 8px 0 0; }
+
+/* En-tête avec logo */
 .entete {
   background: var(--creme);
   color: var(--dore-fonce);
@@ -42,6 +57,20 @@ body {
   font-size: 1.05rem;
 }
 
+/* Barre du haut (une fois connecté) */
+.barre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--creme);
+  border-bottom: 3px solid var(--dore);
+}
+
+.logo-barre { width: 96px; height: auto; display: block; }
+
+/* Contenu */
 .contenu {
   max-width: 560px;
   margin: 0 auto;
@@ -55,43 +84,136 @@ body {
   margin-bottom: 16px;
 }
 
+.carte h1,
 .carte h2 {
   margin: 0 0 10px;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.25rem;
   font-weight: 400;
+}
+
+.carte h1 { font-size: 1.6rem; color: var(--encre); }
+.carte h2 { font-size: 1.25rem; color: var(--dore-fonce); }
+.carte p { margin: 0 0 10px; }
+
+.aide { font-size: 0.92rem; color: var(--encre); }
+
+/* Profil */
+.carte-profil { text-align: center; }
+
+.avatar {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: var(--vert);
+  color: var(--creme);
+  border: 3px solid var(--dore);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 2.2rem;
+}
+
+.fonctions { color: var(--dore-fonce); font-weight: 600; margin: 0; }
+
+/* Liste d'informations */
+.infos { margin: 0 0 16px; }
+
+.infos dt {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--dore-fonce);
 }
 
-.carte p { margin: 0; }
+.infos dd { margin: 2px 0 0; padding-bottom: 12px; border-bottom: 1px solid var(--dore); }
+.infos dd:last-child { border-bottom: 0; padding-bottom: 0; }
 
-.ligne {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--dore);
-}
+/* Formulaires */
+label { display: block; margin: 14px 0 6px; font-weight: 600; }
 
-.carte h2 + .ligne { border-top: 0; }
-
-.etat { font-weight: 600; text-align: right; }
-.etat.ok { color: var(--presence); }
-.etat.erreur { color: var(--absence); }
-.etat.attente { color: var(--dore-fonce); }
-
-.bouton {
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select {
   width: 100%;
   min-height: 48px;
-  border: 0;
+  padding: 10px 12px;
+  border: 1.5px solid var(--dore-fonce);
   border-radius: 8px;
-  background: var(--vert);
-  color: var(--creme);
-  font-size: 1rem;
-  font-weight: 600;
+  background: #FFFFFF;
+  color: var(--encre);
+  font: inherit;
 }
 
-.bouton:focus-visible {
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
   outline: 3px solid var(--dore);
   outline-offset: 2px;
 }
+
+.champ-mdp { display: flex; gap: 8px; align-items: center; }
+.champ-mdp input { flex: 1; }
+
+.ligne-case {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  margin: 6px 0;
+  font-weight: 400;
+}
+
+.ligne-case input {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  accent-color: var(--vert);
+}
+
+/* Boutons */
+.bouton {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 16px;
+  border: 2px solid var(--vert);
+  border-radius: 8px;
+  background: var(--vert);
+  color: var(--creme);
+  font: inherit;
+  font-weight: 600;
+}
+
+.bouton-secondaire { background: var(--creme); color: var(--vert); }
+
+.bouton:disabled { opacity: 0.6; }
+
+.bouton-texte {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--vert);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.actions { margin-top: 4px; }
+
+/* Messages */
+.message {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1.5px solid;
+  font-weight: 600;
+  background: #FFFFFF;
+}
+
+.message.erreur { color: var(--absence); border-color: var(--absence); }
+.message.ok { color: var(--presence); border-color: var(--presence); }
