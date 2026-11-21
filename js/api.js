@@ -18,8 +18,14 @@
     return reponse.data;
   }
 
+  function depNom(lien) {
+    var dep = Array.isArray(lien.departments) ? lien.departments[0] : lien.departments;
+    return dep ? dep.nom : "";
+  }
+
   function messageErreur(err) {
     var texte = ((err && err.message) || "").toLowerCase();
+    var code = err && err.code;
 
     if (!navigator.onLine || texte.indexOf("failed to fetch") !== -1 ||
         texte.indexOf("networkerror") !== -1 || texte.indexOf("load failed") !== -1) {
@@ -34,11 +40,20 @@
     if (texte.indexOf("rate limit") !== -1 || texte.indexOf("too many") !== -1) {
       return "Trop de tentatives. Patientez quelques minutes puis réessayez.";
     }
+    // Messages écrits en français par les règles du serveur
+    if (code === "P0001" || code === "42501") {
+      return err.message;
+    }
+    if (code === "23505") {
+      return "Ce numéro de téléphone est déjà enregistré.";
+    }
     if (texte.indexOf("permission denied") !== -1 || texte.indexOf("row-level security") !== -1) {
       return "Vous n'avez pas l'autorisation d'effectuer cette action.";
     }
     return "Une erreur est survenue. Veuillez réessayer.";
   }
+
+  /* ---------- Session ---------- */
 
   function connecter(email, motDePasse) {
     return client.auth
@@ -63,6 +78,8 @@
     });
   }
 
+  /* ---------- Ma fiche ---------- */
+
   function chargerMaFiche(userId) {
     return client
       .from("members")
@@ -72,23 +89,22 @@
       .then(verifier)
       .then(function (membre) {
         if (!membre || !membre.compte_actif || membre.statut !== "membre") {
-          return { membre: membre, prive: null, fonctions: [], departements: [] };
+          return { membre: membre, prive: null, fonctions: [], departements: [], permissions: [] };
         }
         return Promise.all([
           client.from("member_private").select("*").eq("member_id", membre.id).maybeSingle(),
           client.from("member_functions").select("fonction").eq("member_id", membre.id),
-          client.from("member_departments").select("principal, departments(nom)").eq("member_id", membre.id)
+          client.from("member_departments").select("principal, departments(nom)").eq("member_id", membre.id),
+          client.from("member_permissions").select("permission").eq("member_id", membre.id)
         ]).then(function (r) {
-          var fonctions = verifier(r[1]).map(function (l) { return l.fonction; });
-          var departements = verifier(r[2]).map(function (l) {
-            var dep = Array.isArray(l.departments) ? l.departments[0] : l.departments;
-            return { nom: dep ? dep.nom : "", principal: !!l.principal };
-          });
           return {
             membre: membre,
             prive: verifier(r[0]),
-            fonctions: fonctions,
-            departements: departements
+            fonctions: verifier(r[1]).map(function (l) { return l.fonction; }),
+            departements: verifier(r[2]).map(function (l) {
+              return { nom: depNom(l), principal: !!l.principal };
+            }),
+            permissions: verifier(r[3]).map(function (l) { return l.permission; })
           };
         });
       });
@@ -122,6 +138,86 @@
       });
   }
 
+  /* ---------- Listes de référence ---------- */
+
+  function listerCommunes() {
+    return client
+      .from("communes")
+      .select("nom")
+      .eq("actif", true)
+      .then(verifier)
+      .then(function (lignes) {
+        return lignes.map(function (l) { return l.nom; });
+      });
+  }
+
+  function listerDepartements() {
+    return client
+      .from("departments")
+      .select("id, nom")
+      .then(verifier);
+  }
+
+  /* ---------- Annuaire ---------- */
+
+  function listerMembres() {
+    return Promise.all([
+      client.from("members").select("id, nom, prenom, situation_matrimoniale, commune, quartier, statut, compte_actif"),
+      client.from("member_departments").select("member_id, principal, departments(nom)")
+    ]).then(function (r) {
+      var membres = verifier(r[0]);
+      var liens = verifier(r[1]);
+      var parMembre = {};
+
+      liens.forEach(function (l) {
+        if (!parMembre[l.member_id]) { parMembre[l.member_id] = []; }
+        parMembre[l.member_id].push({ nom: depNom(l), principal: !!l.principal });
+      });
+
+      return membres.map(function (m) {
+        m.departements = parMembre[m.id] || [];
+        return m;
+      });
+    });
+  }
+
+  function contactVisible(membreId) {
+    return client
+      .rpc("contact_visible", { p_member: membreId })
+      .then(verifier)
+      .then(function (lignes) {
+        return lignes && lignes.length ? lignes[0] : null;
+      });
+  }
+
+  function detailPrive(membreId) {
+    return client
+      .from("member_private")
+      .select("*")
+      .eq("member_id", membreId)
+      .maybeSingle()
+      .then(verifier);
+  }
+
+  function creerFiche(p) {
+    return client
+      .rpc("creer_fiche", {
+        p_nom: p.nom,
+        p_prenom: p.prenom,
+        p_telephone: p.telephone,
+        p_situation: p.situation,
+        p_bapteme_eau: p.baptemeEau,
+        p_bapteme_esprit: p.baptemeEsprit,
+        p_commune: p.commune,
+        p_quartier: p.quartier,
+        p_de_passage: p.dePassage,
+        p_email: p.email,
+        p_dept_principal: p.deptPrincipal,
+        p_dept_secondaires: p.deptSecondaires
+      })
+      .then(verifier);
+  }
+
   window.SionApi = {
     connecter: connecter,
     deconnecter: deconnecter,
@@ -130,6 +226,12 @@
     chargerMaFiche: chargerMaFiche,
     modifierMembre: modifierMembre,
     modifierPrive: modifierPrive,
+    listerCommunes: listerCommunes,
+    listerDepartements: listerDepartements,
+    listerMembres: listerMembres,
+    contactVisible: contactVisible,
+    detailPrive: detailPrive,
+    creerFiche: creerFiche,
     messageErreur: messageErreur
   };
 })();
