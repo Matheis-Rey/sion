@@ -1,10 +1,12 @@
-var VERSION = "sion-v2";
+var VERSION = "sion-v3";
 var FICHIERS = [
   "./",
   "index.html",
   "manifest.json",
   "css/style.css",
   "js/config.js",
+  "js/supabase.js",
+  "js/api.js",
   "js/app.js",
   "icons/icon-192.png",
   "icons/icon-512.png",
@@ -14,7 +16,11 @@ var FICHIERS = [
 self.addEventListener("install", function (e) {
   e.waitUntil(
     caches.open(VERSION).then(function (cache) {
-      return cache.addAll(FICHIERS);
+      return Promise.all(
+        FICHIERS.map(function (f) {
+          return cache.add(f).catch(function () {});
+        })
+      );
     })
   );
   self.skipWaiting();
@@ -39,7 +45,7 @@ self.addEventListener("fetch", function (e) {
   if (url.origin !== location.origin) return;
 
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: "no-cache" })
       .then(function (reponse) {
         var copie = reponse.clone();
         caches.open(VERSION).then(function (cache) {

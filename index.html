@@ -11,33 +11,119 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<header class="entete">
-  <img class="logo" src="icons/logo.webp" alt="Logo de l'Église SION" width="180" height="180">
-  <p class="slogan">Lieu du renouvellement de l'intelligence</p>
-</header>
 
-<main class="contenu">
-  <section class="carte">
-    <h2>Bienvenue</h2>
-    <p>Les fondations sont en place. Les comptes et les fiches des membres arrivent à l'étape suivante.</p>
-  </section>
+<!-- Chargement -->
+<div id="vue-chargement" class="vue vue-centree">
+  <img class="logo" src="icons/logo.webp" alt="Logo de l'Église SION" width="420" height="293">
+  <p class="texte-doux">Chargement…</p>
+</div>
 
-  <section class="carte">
-    <h2>État de l'application</h2>
-    <div class="ligne">
-      <span>Réseau</span>
-      <span id="etat-reseau" class="etat attente">Vérification…</span>
-    </div>
-    <div class="ligne">
-      <span>Serveur Supabase</span>
-      <span id="etat-serveur" class="etat attente">Vérification…</span>
-    </div>
-  </section>
+<!-- Connexion -->
+<div id="vue-connexion" class="vue" hidden>
+  <header class="entete">
+    <img class="logo" src="icons/logo.webp" alt="Logo de l'Église SION" width="420" height="293">
+    <p class="slogan">Lieu du renouvellement de l'intelligence</p>
+  </header>
+  <main class="contenu">
+    <form id="form-connexion" class="carte" novalidate>
+      <h2>Connexion</h2>
 
-  <button id="btn-verifier" class="bouton" type="button">Vérifier à nouveau</button>
-</main>
+      <label for="champ-email">Adresse e-mail</label>
+      <input id="champ-email" type="email" inputmode="email" autocomplete="username"
+             autocapitalize="none" spellcheck="false" maxlength="254">
+
+      <label for="champ-mdp">Mot de passe</label>
+      <div class="champ-mdp">
+        <input id="champ-mdp" type="password" autocomplete="current-password" maxlength="128">
+        <button id="btn-voir-mdp" class="bouton-texte" type="button">Afficher</button>
+      </div>
+
+      <p id="msg-connexion" class="message" role="alert" hidden></p>
+      <button id="btn-connexion" class="bouton" type="submit">Se connecter</button>
+    </form>
+  </main>
+</div>
+
+<!-- Messages (compte non activé, erreur de chargement) -->
+<div id="vue-message" class="vue" hidden>
+  <header class="entete">
+    <img class="logo" src="icons/logo.webp" alt="Logo de l'Église SION" width="420" height="293">
+  </header>
+  <main class="contenu">
+    <section class="carte">
+      <h2 id="message-titre"></h2>
+      <p id="message-texte"></p>
+      <div class="actions">
+        <button id="btn-reessayer" class="bouton" type="button" hidden>Réessayer</button>
+        <button id="btn-quitter" class="bouton bouton-secondaire" type="button">Se déconnecter</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Ma fiche -->
+<div id="vue-fiche" class="vue" hidden>
+  <header class="barre">
+    <img class="logo-barre" src="icons/logo.webp" alt="SION" width="420" height="293">
+    <button id="btn-deconnexion" class="bouton-texte" type="button">Déconnexion</button>
+  </header>
+
+  <main class="contenu">
+    <section class="carte carte-profil">
+      <div id="avatar" class="avatar" aria-hidden="true"></div>
+      <h1 id="fiche-nom"></h1>
+      <p id="fiche-fonctions" class="fonctions"></p>
+    </section>
+
+    <p id="msg-fiche" class="message" role="status" hidden></p>
+
+    <section id="carte-infos" class="carte">
+      <h2>Mes informations</h2>
+      <dl id="liste-infos" class="infos"></dl>
+      <button id="btn-modifier" class="bouton bouton-secondaire" type="button">Modifier ma fiche</button>
+    </section>
+
+    <form id="form-fiche" class="carte" hidden novalidate>
+      <h2>Modifier ma fiche</h2>
+
+      <label for="f-prenom">Prénom</label>
+      <input id="f-prenom" type="text" maxlength="60" autocomplete="given-name">
+
+      <label for="f-nom">Nom</label>
+      <input id="f-nom" type="text" maxlength="60" autocomplete="family-name">
+
+      <label for="f-situation">Situation matrimoniale</label>
+      <select id="f-situation"></select>
+
+      <label for="f-commune">Commune</label>
+      <input id="f-commune" type="text" maxlength="60">
+
+      <label for="f-quartier">Quartier</label>
+      <input id="f-quartier" type="text" maxlength="60">
+
+      <label class="ligne-case"><input id="f-bapteme-eau" type="checkbox"> Baptême d'eau reçu</label>
+      <label class="ligne-case"><input id="f-bapteme-esprit" type="checkbox"> Baptême du Saint-Esprit reçu</label>
+
+      <p id="msg-form" class="message" role="alert" hidden></p>
+      <div class="actions">
+        <button id="btn-enregistrer" class="bouton" type="submit">Enregistrer</button>
+        <button id="btn-annuler" class="bouton bouton-secondaire" type="button">Annuler</button>
+      </div>
+    </form>
+
+    <section id="carte-visibilite" class="carte">
+      <h2>Confidentialité</h2>
+      <p class="aide">Votre nom, prénom, lieu d'habitation, situation matrimoniale, départements et photo sont toujours visibles par les membres actifs. Choisissez ici ce que vous partagez en plus.</p>
+      <label class="ligne-case"><input id="v-telephone" type="checkbox"> Afficher mon numéro de téléphone</label>
+      <label class="ligne-case"><input id="v-email" type="checkbox"> Afficher mon adresse e-mail</label>
+      <label class="ligne-case"><input id="v-baptemes" type="checkbox"> Afficher mes baptêmes</label>
+    </section>
+  </main>
+</div>
 
 <script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/api.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
