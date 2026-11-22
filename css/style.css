@@ -373,3 +373,10 @@ input[type="range"] {
   min-height: 48px;
   accent-color: var(--vert);
 }
+
+.version {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--dore-fonce);
+}
