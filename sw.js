@@ -1,4 +1,4 @@
-var VERSION = "sion-v5";
+var VERSION = "sion-v7";
 var FICHIERS = [
   "./",
   "index.html",
@@ -55,7 +55,7 @@ self.addEventListener("fetch", function (e) {
         return reponse;
       })
       .catch(function () {
-        return caches.match(e.request);
+        return caches.match(e.request, { ignoreSearch: true });
       })
   );
 });

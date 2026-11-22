@@ -47,6 +47,7 @@
       <p id="msg-connexion" class="message" role="alert" hidden></p>
       <button id="btn-connexion" class="bouton" type="submit">Se connecter</button>
     </form>
+    <p class="version">Version 7 · scripts non à jour</p>
   </main>
 </div>
 
@@ -64,6 +65,32 @@
         <button id="btn-quitter" class="bouton bouton-secondaire" type="button">Se déconnecter</button>
       </div>
     </section>
+  </main>
+</div>
+
+<!-- Choix du mot de passe personnel (première connexion) -->
+<div id="vue-mdp" class="vue" hidden>
+  <header class="entete">
+    <img class="logo" src="icons/logo.webp" alt="Logo de l'Église SION" width="420" height="293">
+  </header>
+  <main class="contenu">
+    <form id="form-mdp" class="carte" novalidate>
+      <h2>Choisissez votre mot de passe</h2>
+      <p class="aide">Le mot de passe reçu par e-mail est temporaire. Choisissez un mot de passe personnel : au moins 10 caractères, avec des lettres et au moins un chiffre.</p>
+
+      <label for="mdp-nouveau">Nouveau mot de passe</label>
+      <div class="champ-mdp">
+        <input id="mdp-nouveau" type="password" autocomplete="new-password" maxlength="128">
+        <button id="btn-voir-mdp2" class="bouton-texte" type="button">Afficher</button>
+      </div>
+
+      <label for="mdp-confirmation">Confirmez le mot de passe</label>
+      <input id="mdp-confirmation" type="password" autocomplete="new-password" maxlength="128">
+
+      <p id="msg-mdp" class="message" role="alert" hidden></p>
+      <button id="btn-mdp-ok" class="bouton" type="submit">Enregistrer mon mot de passe</button>
+      <button id="btn-mdp-quitter" class="bouton bouton-secondaire" type="button">Se déconnecter</button>
+    </form>
   </main>
 </div>
 
@@ -133,6 +160,7 @@
       <label class="ligne-case"><input id="v-email" type="checkbox"> Afficher mon adresse e-mail</label>
       <label class="ligne-case"><input id="v-baptemes" type="checkbox"> Afficher mes baptêmes</label>
     </section>
+    <p class="version">Version 7 · scripts non à jour</p>
   </main>
 </div>
 
@@ -178,6 +206,19 @@
     <section class="carte">
       <h2>Informations</h2>
       <dl id="d-infos" class="infos"></dl>
+    </section>
+    <section id="carte-acces" class="carte" hidden>
+      <h2>Accès à l'application</h2>
+      <p id="acces-etat" class="aide"></p>
+      <button id="btn-acces" class="bouton bouton-secondaire" type="button">Créer l'accès</button>
+      <form id="form-acces" hidden novalidate>
+        <label for="acces-email">Adresse e-mail du membre</label>
+        <input id="acces-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254">
+        <p class="aide">Un mot de passe temporaire sera envoyé à cette adresse. Il est valable 7 jours.</p>
+        <p id="msg-acces" class="message" role="alert" hidden></p>
+        <button id="btn-acces-envoyer" class="bouton" type="submit">Créer le compte et envoyer l'e-mail</button>
+        <button id="btn-acces-annuler" class="bouton bouton-secondaire" type="button">Annuler</button>
+      </form>
     </section>
   </main>
 </div>
@@ -268,10 +309,10 @@
   <button id="onglet-membres" class="onglet" type="button">Membres</button>
 </nav>
 
-<script src="js/config.js"></script>
-<script src="js/supabase.js"></script>
-<script src="js/api.js"></script>
-<script src="js/photo.js"></script>
-<script src="js/app.js"></script>
+<script src="js/config.js?v=7"></script>
+<script src="js/supabase.js?v=7"></script>
+<script src="js/api.js?v=7"></script>
+<script src="js/photo.js?v=7"></script>
+<script src="js/app.js?v=7"></script>
 </body>
 </html>
