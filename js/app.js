@@ -2,19 +2,23 @@
   "use strict";
 
   var SITUATIONS = ["Marié(e)", "Célibataire", "Veuf(ve)", "Concubinage", "Fiancé(e)"];
-  var VUES = ["chargement", "connexion", "message", "fiche", "membres", "detail", "ajout", "photo"];
+  var VUES = ["chargement", "connexion", "message", "mdp", "fiche", "membres", "detail", "ajout", "photo"];
   var VUES_CONNECTEES = ["fiche", "membres", "detail", "ajout", "photo"];
   var VUES_AVEC_ONGLETS = ["fiche", "membres", "detail"];
   var PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var PHOTO_MAX = 10 * 1024 * 1024;
 
+  var VERSION = "7";
+
   var etat = vide();
   var reference = { communes: null, departements: null };
   var annuaire = { membres: [], charge: false };
-  var photos = { urls: {}, horodatage: 0 };
+  var photos = { urls: {}, horodatage: 0, erreur: "" };
   var detailCourant = null;
   var modeFiche = { type: "creation" };
   var cible = null;
+  var utilisateurCourant = null;
+  var emailDetail = "";
 
   function vide() {
     return { membre: null, prive: null, fonctions: [], departements: [], permissions: [] };
@@ -211,10 +215,14 @@
     }
     return SionApi.urlsPhotos(manquants)
       .then(function (carte) {
+        photos.erreur = "";
         Object.keys(carte).forEach(function (c) { photos.urls[c] = carte[c]; });
         return true;
       })
-      .catch(function () { return false; });
+      .catch(function (err) {
+        photos.erreur = (err && err.message) || "erreur inconnue";
+        return false;
+      });
   }
 
   /* ---------- Connexion ---------- */
@@ -264,9 +272,11 @@
     SionApi.deconnecter().catch(function () {}).then(function () {
       etat = vide();
       annuaire = { membres: [], charge: false };
-      photos = { urls: {}, horodatage: 0 };
+      photos = { urls: {}, horodatage: 0, erreur: "" };
       detailCourant = null;
       cible = null;
+      utilisateurCourant = null;
+      emailDetail = "";
       $("champ-mdp").value = "";
       afficherMessage($("msg-connexion"), "");
       montrer("connexion");
@@ -292,6 +302,14 @@
       .then(function (user) {
         if (!user) {
           montrer("connexion");
+          return null;
+        }
+        utilisateurCourant = user;
+        if (user.app_metadata && user.app_metadata.must_change_password === true) {
+          $("mdp-nouveau").value = "";
+          $("mdp-confirmation").value = "";
+          afficherMessage($("msg-mdp"), "");
+          montrer("mdp");
           return null;
         }
         return SionApi.chargerMaFiche(user.id).then(function (donnees) {
@@ -520,6 +538,10 @@
       })
       .then(function (nouveau) {
         if (nouveau) { dessinerListe(); }
+        var avecPhoto = annuaire.membres.some(function (m) { return !!m.photo_path; });
+        if (avecPhoto && photos.erreur) {
+          afficherMessage($("msg-membres"), "Les photos n'ont pas pu être chargées : " + photos.erreur);
+        }
       })
       .catch(function (err) {
         $("compteur").textContent = "";
@@ -607,6 +629,8 @@
 
     var gerer = peutGerer();
     $("d-actions").hidden = !gerer;
+    emailDetail = "";
+    afficherAcces(m);
 
     var base = [
       ["Lieu d'habitation", texte(lieu(m))],
@@ -621,6 +645,7 @@
       if (!c || detailCourant !== m) { return; }
       var lignes = base.slice();
       if (gerer) {
+        emailDetail = c.email || "";
         lignes.push(["Téléphone", formaterTelephone(c.telephone)]);
         lignes.push(["Adresse e-mail", texte(c.email)]);
         lignes.push(["Baptême d'eau", ouiNon(c.bapteme_eau)]);
@@ -984,15 +1009,180 @@
     });
   }
 
+  /* ---------- Premier mot de passe personnel ---------- */
+
+  function initMdp() {
+    $("btn-voir-mdp2").addEventListener("click", function () {
+      var cache = $("mdp-nouveau").type === "password";
+      $("mdp-nouveau").type = cache ? "text" : "password";
+      $("mdp-confirmation").type = cache ? "text" : "password";
+      this.textContent = cache ? "Masquer" : "Afficher";
+    });
+
+    $("btn-mdp-quitter").addEventListener("click", deconnexion);
+
+    $("form-mdp").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var zone = $("msg-mdp");
+      var bouton = $("btn-mdp-ok");
+      var mdp = $("mdp-nouveau").value;
+
+      if (mdp.length < 10) {
+        afficherMessage(zone, "Le mot de passe doit comporter au moins 10 caractères.");
+        return;
+      }
+      if (!/[A-Za-z]/.test(mdp) || !/[0-9]/.test(mdp)) {
+        afficherMessage(zone, "Le mot de passe doit contenir des lettres et au moins un chiffre.");
+        return;
+      }
+      if (mdp !== $("mdp-confirmation").value) {
+        afficherMessage(zone, "Les deux mots de passe ne sont pas identiques.");
+        return;
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      bouton.textContent = "Enregistrement…";
+
+      SionApi.changerMdpInitial(mdp)
+        .then(function () {
+          return SionApi.connecter(utilisateurCourant.email, mdp);
+        })
+        .then(function () {
+          $("mdp-nouveau").value = "";
+          $("mdp-confirmation").value = "";
+          return chargerFiche();
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Enregistrer mon mot de passe";
+        });
+    });
+  }
+
+  /* ---------- Accès d'un membre (responsables) ---------- */
+
+  function dateCourte(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? "" : d.toLocaleDateString("fr-FR");
+  }
+
+  function afficherAcces(m) {
+    var visible = peutGerer() && m.statut === "membre";
+    $("carte-acces").hidden = !visible;
+    $("form-acces").hidden = true;
+    if (!visible) { return; }
+
+    var bouton = $("btn-acces");
+    if (!m.compte_actif) {
+      $("acces-etat").textContent = "Aucun accès n'a été créé pour ce membre.";
+      bouton.textContent = "Créer l'accès";
+      bouton.hidden = false;
+    } else if (m.mdp_temporaire) {
+      var date = m.acces_envoye_le ? " le " + dateCourte(m.acces_envoye_le) : "";
+      $("acces-etat").textContent = "Accès envoyé" + date + ". Le membre ne s'est pas encore connecté avec un mot de passe personnel.";
+      bouton.textContent = "Renvoyer l'accès";
+      bouton.hidden = false;
+    } else {
+      $("acces-etat").textContent = "Compte actif.";
+      bouton.hidden = true;
+    }
+    afficherMessage($("msg-acces"), "");
+  }
+
+  function apresAcces(m, message) {
+    annuaire.charge = false;
+    return chargerAnnuaire().then(function () {
+      ouvrirDetail(m.id);
+      afficherMessage($("msg-detail"), message, "ok");
+    });
+  }
+
+  function initAcces() {
+    $("btn-acces").addEventListener("click", function () {
+      var m = detailCourant;
+      if (!m) { return; }
+
+      if (m.compte_actif && m.mdp_temporaire) {
+        if (!window.confirm("Envoyer un nouveau mot de passe temporaire à " + nomComplet(m) + " ? L'ancien ne fonctionnera plus.")) {
+          return;
+        }
+        var bouton = this;
+        bouton.disabled = true;
+        SionApi.creerCompte(m.id, null, "renvoyer")
+          .then(function (r) {
+            return apresAcces(m, "Un nouvel accès a été envoyé à " + r.email + ".");
+          })
+          .catch(function (err) {
+            afficherMessage($("msg-detail"), SionApi.messageErreur(err));
+          })
+          .then(function () { bouton.disabled = false; });
+        return;
+      }
+
+      $("acces-email").value = emailDetail || "";
+      afficherMessage($("msg-acces"), "");
+      $("form-acces").hidden = false;
+      this.hidden = true;
+    });
+
+    $("btn-acces-annuler").addEventListener("click", function () {
+      $("form-acces").hidden = true;
+      $("btn-acces").hidden = false;
+    });
+
+    $("form-acces").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var m = detailCourant;
+      var zone = $("msg-acces");
+      var bouton = $("btn-acces-envoyer");
+      var email = $("acces-email").value.trim();
+
+      if (!m) { return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        afficherMessage(zone, "Saisissez une adresse e-mail valide.");
+        return;
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      bouton.textContent = "Envoi en cours…";
+
+      SionApi.creerCompte(m.id, email, "creer")
+        .then(function (r) {
+          return apresAcces(m, "L'accès a été créé. Un e-mail a été envoyé à " + r.email + ".");
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Créer le compte et envoyer l'e-mail";
+        });
+    });
+  }
+
   /* ---------- Démarrage ---------- */
 
+  function afficherVersion() {
+    var libelle = "Version " + VERSION + " · api " + (SionApi.version || "ancienne");
+    var zones = document.querySelectorAll(".version");
+    for (var i = 0; i < zones.length; i++) { zones[i].textContent = libelle; }
+  }
+
   function demarrer() {
+    afficherVersion();
     initConnexion();
     initEdition();
     initVisibilite();
     initMembres();
     initPhoto();
     initAjout();
+    initMdp();
+    initAcces();
 
     $("btn-deconnexion").addEventListener("click", deconnexion);
     $("btn-quitter").addEventListener("click", deconnexion);

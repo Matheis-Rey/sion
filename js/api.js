@@ -27,7 +27,11 @@
     var texte = ((err && err.message) || "").toLowerCase();
     var code = err && err.code;
 
-    if (!navigator.onLine || texte.indexOf("failed to fetch") !== -1 ||
+    if (code === "FN") {
+      return err.message;
+    }
+    if (!navigator.onLine || texte.indexOf("failed to send a request") !== -1 ||
+        texte.indexOf("failed to fetch") !== -1 ||
         texte.indexOf("networkerror") !== -1 || texte.indexOf("load failed") !== -1) {
       return "Pas de connexion Internet. Vérifiez votre réseau puis réessayez.";
     }
@@ -171,7 +175,7 @@
 
   function listerMembres() {
     return Promise.all([
-      client.from("members").select("id, nom, prenom, situation_matrimoniale, commune, quartier, photo_path, statut, compte_actif"),
+      client.from("members").select("id, nom, prenom, situation_matrimoniale, commune, quartier, photo_path, statut, compte_actif, mdp_temporaire, acces_envoye_le"),
       client.from("member_departments").select("member_id, principal, departments(nom)")
     ]).then(function (r) {
       var membres = verifier(r[0]);
@@ -227,6 +231,40 @@
       .then(verifier);
   }
 
+  /* ---------- Fonctions serveur (accès et mot de passe) ---------- */
+
+  function appelerFonction(nom, corps) {
+    return client.functions.invoke(nom, { body: corps }).then(function (r) {
+      if (!r.error) {
+        return r.data;
+      }
+      var contexte = r.error.context;
+      if (contexte && typeof contexte.json === "function") {
+        return contexte.json().then(
+          function (j) {
+            var e = new Error((j && j.error) || "Une erreur est survenue. Veuillez réessayer.");
+            e.code = "FN";
+            throw e;
+          },
+          function () { throw r.error; }
+        );
+      }
+      throw r.error;
+    });
+  }
+
+  function creerCompte(membreId, email, action) {
+    return appelerFonction("creer-compte", {
+      membre_id: membreId,
+      email: email || null,
+      action: action || "creer"
+    });
+  }
+
+  function changerMdpInitial(motDePasse) {
+    return appelerFonction("changer-mdp-initial", { password: motDePasse });
+  }
+
   /* ---------- Photos de profil ---------- */
 
   function envoyerPhoto(membreId, blob, ancienChemin) {
@@ -278,6 +316,7 @@
   }
 
   window.SionApi = {
+    version: "7",
     connecter: connecter,
     deconnecter: deconnecter,
     utilisateur: utilisateur,
@@ -294,6 +333,8 @@
     envoyerPhoto: envoyerPhoto,
     urlsPhotos: urlsPhotos,
     definirDepartements: definirDepartements,
+    creerCompte: creerCompte,
+    changerMdpInitial: changerMdpInitial,
     messageErreur: messageErreur
   };
 })();
