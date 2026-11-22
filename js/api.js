@@ -262,7 +262,7 @@
   }
 
   function changerMdpInitial(motDePasse) {
-    return appelerFonction("changer-mdp-initial", { password: motDePasse });
+    return appelerFonction("changer-mdp-initial-", { password: motDePasse });
   }
 
   /* ---------- Photos de profil ---------- */
