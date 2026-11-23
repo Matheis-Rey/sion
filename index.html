@@ -47,7 +47,120 @@
       <p id="msg-connexion" class="message" role="alert" hidden></p>
       <button id="btn-connexion" class="bouton" type="submit">Se connecter</button>
     </form>
-    <p class="version">Version 8 · scripts non à jour</p>
+    <p class="liens">
+      <button id="btn-oubli" class="bouton-texte" type="button">Mot de passe oublié ?</button><br>
+      <button id="lien-conf-connexion" class="bouton-texte" type="button">Politique de confidentialité</button>
+    </p>
+    <p class="version">Version 9 · scripts non à jour</p>
+  </main>
+</div>
+
+<!-- Mot de passe oublié -->
+<div id="vue-oubli" class="vue" hidden>
+  <header class="entete">
+    <img class="logo" src="icons/logo.webp" alt="Logo de l'Église SION" width="420" height="293">
+  </header>
+  <main class="contenu">
+    <form id="form-oubli-1" class="carte" novalidate>
+      <h2>Mot de passe oublié</h2>
+      <p class="aide">Saisissez l'adresse e-mail de votre compte. Nous vous enverrons un code à 6 chiffres, valable 10 minutes.</p>
+      <label for="oubli-email">Adresse e-mail</label>
+      <input id="oubli-email" type="email" inputmode="email" autocomplete="username"
+             autocapitalize="none" spellcheck="false" maxlength="254">
+      <p id="msg-oubli-1" class="message" role="alert" hidden></p>
+      <button id="btn-oubli-envoyer" class="bouton" type="submit">Recevoir un code</button>
+      <button id="btn-oubli-retour" class="bouton bouton-secondaire" type="button">Retour à la connexion</button>
+    </form>
+
+    <form id="form-oubli-2" class="carte" hidden novalidate>
+      <h2>Nouveau mot de passe</h2>
+      <p id="oubli-info" class="aide"></p>
+
+      <label for="oubli-code">Code reçu par e-mail</label>
+      <input id="oubli-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+
+      <label for="oubli-mdp">Nouveau mot de passe</label>
+      <div class="champ-mdp">
+        <input id="oubli-mdp" type="password" autocomplete="new-password" maxlength="128">
+        <button id="btn-voir-mdp3" class="bouton-texte" type="button">Afficher</button>
+      </div>
+
+      <label for="oubli-mdp2">Confirmez le mot de passe</label>
+      <input id="oubli-mdp2" type="password" autocomplete="new-password" maxlength="128">
+      <p class="aide">Au moins 10 caractères, avec des lettres et au moins un chiffre.</p>
+
+      <p id="msg-oubli-2" class="message" role="alert" hidden></p>
+      <button id="btn-oubli-valider" class="bouton" type="submit">Changer mon mot de passe</button>
+      <button id="btn-oubli-renvoyer" class="bouton bouton-secondaire" type="button">Renvoyer un code</button>
+      <button id="btn-oubli-retour2" class="bouton-texte" type="button">Retour à la connexion</button>
+    </form>
+  </main>
+</div>
+
+<!-- Politique de confidentialité -->
+<div id="vue-confidentialite" class="vue" hidden>
+  <main class="contenu">
+    <button id="btn-conf-retour" class="bouton-texte" type="button">← Retour</button>
+    <article class="carte politique">
+      <h1>Politique de confidentialité</h1>
+      <p class="bandeau">Version provisoire du 23 novembre 2026. Ce texte est un projet : il doit être relu et validé au regard du droit applicable en Côte d'Ivoire avant le lancement officiel de l'application.</p>
+
+      <h2>1. Qui est responsable de vos données ?</h2>
+      <p>L'Église SION est responsable de l'application SION et des informations qu'elle contient.</p>
+
+      <h2>2. Quelles informations sont enregistrées ?</h2>
+      <ul>
+        <li>Votre identité : nom, prénom, photo de profil.</li>
+        <li>Vos coordonnées : numéro de téléphone, adresse e-mail, commune ou localité et quartier.</li>
+        <li>Votre situation matrimoniale et vos baptêmes (d'eau et du Saint-Esprit).</li>
+        <li>Votre rôle dans l'Église : fonctions, départements, responsabilités et autorisations.</li>
+        <li>Les informations de connexion et un journal des actions importantes (création de compte, modification d'une fiche, nomination, etc.).</li>
+      </ul>
+      <p>Les personnes de passage sont enregistrées sans compte : nom, prénom, téléphone, situation matrimoniale, baptêmes, commune ou localité et quartier.</p>
+      <p>Quand de nouvelles fonctions seront ouvertes (par exemple sujets de prière, rendez-vous pastoraux, témoignages, présences, comptabilité), cette politique sera mise à jour pour les décrire.</p>
+
+      <h2>3. Pourquoi ces informations ?</h2>
+      <p>Pour gérer la vie de l'Église : enregistrer les membres et les personnes de passage, organiser les départements et les responsables, vous joindre, administrer l'application et vous envoyer les messages liés à votre compte (accès, code de vérification).</p>
+
+      <h2>4. Qui peut voir quoi ?</h2>
+      <ul>
+        <li>Tous les membres actifs voient votre nom, prénom, lieu d'habitation, situation matrimoniale, départements et photo.</li>
+        <li>Votre téléphone, votre adresse e-mail et vos baptêmes ne sont visibles des autres membres que si vous choisissez de les afficher (Ma fiche, rubrique Confidentialité).</li>
+        <li>Le Pasteur et les responsables autorisés peuvent voir les informations masquées, selon les droits qui leur sont attribués.</li>
+        <li>Les personnes de passage ne sont visibles que des responsables autorisés.</li>
+      </ul>
+      <p>Ces règles sont appliquées par le serveur, et pas seulement par l'écran.</p>
+
+      <h2>5. Comment vos informations sont-elles protégées ?</h2>
+      <ul>
+        <li>Les mots de passe ne sont jamais enregistrés en clair.</li>
+        <li>Le mot de passe temporaire reçu par e-mail est valable 7 jours et doit être remplacé dès la première connexion.</li>
+        <li>Le code de réinitialisation à 6 chiffres est valable 10 minutes, ne sert qu'une fois et permet 5 essais.</li>
+        <li>Les photos sont stockées dans un espace privé, réservé aux membres actifs.</li>
+        <li>Les actions importantes sont enregistrées dans un journal protégé.</li>
+      </ul>
+      <p>Aucun système n'est totalement infaillible : ne communiquez jamais votre mot de passe ni vos codes.</p>
+
+      <h2>6. Quels services extérieurs interviennent ?</h2>
+      <ul>
+        <li>Supabase : base de données, authentification et stockage des photos.</li>
+        <li>Google : envoi des e-mails de l'application.</li>
+        <li>GitHub : hébergement des pages de l'application.</li>
+      </ul>
+      <p>Si les notifications (Firebase) ou le soutien par un service de paiement sont activés, ils seront ajoutés à cette liste.</p>
+
+      <h2>7. Combien de temps sont-elles conservées ?</h2>
+      <p>Votre fiche est conservée tant que vous faites partie de l'Église. Vous pouvez demander la suppression de votre compte auprès d'un responsable : elle est effectuée après un délai d'une semaine suivant votre confirmation, sous réserve des obligations légales. La durée de conservation du journal des actions sera précisée avant le lancement officiel.</p>
+
+      <h2>8. Quels sont vos droits ?</h2>
+      <ul>
+        <li>Consulter vos informations (Ma fiche).</li>
+        <li>Les corriger (Modifier ma fiche).</li>
+        <li>Choisir ce qui est visible par les autres membres.</li>
+        <li>Demander la suppression de votre compte.</li>
+      </ul>
+      <p>Pour toute question, adressez-vous au Pasteur ou à un responsable de l'Église.</p>
+    </article>
   </main>
 </div>
 
@@ -90,6 +203,7 @@
       <p id="msg-mdp" class="message" role="alert" hidden></p>
       <button id="btn-mdp-ok" class="bouton" type="submit">Enregistrer mon mot de passe</button>
       <button id="btn-mdp-quitter" class="bouton bouton-secondaire" type="button">Se déconnecter</button>
+      <p class="liens"><button id="lien-conf-mdp" class="bouton-texte" type="button">Politique de confidentialité</button></p>
     </form>
   </main>
 </div>
@@ -160,7 +274,8 @@
       <label class="ligne-case"><input id="v-email" type="checkbox"> Afficher mon adresse e-mail</label>
       <label class="ligne-case"><input id="v-baptemes" type="checkbox"> Afficher mes baptêmes</label>
     </section>
-    <p class="version">Version 8 · scripts non à jour</p>
+    <p class="liens"><button id="lien-conf-fiche" class="bouton-texte" type="button">Politique de confidentialité</button></p>
+    <p class="version">Version 9 · scripts non à jour</p>
   </main>
 </div>
 
@@ -341,10 +456,10 @@
   <button id="onglet-responsables" class="onglet" type="button">Responsables</button>
 </nav>
 
-<script src="js/config.js?v=8"></script>
-<script src="js/supabase.js?v=8"></script>
-<script src="js/api.js?v=8"></script>
-<script src="js/photo.js?v=8"></script>
-<script src="js/app.js?v=8"></script>
+<script src="js/config.js?v=9"></script>
+<script src="js/supabase.js?v=9"></script>
+<script src="js/api.js?v=9"></script>
+<script src="js/photo.js?v=9"></script>
+<script src="js/app.js?v=9"></script>
 </body>
 </html>
