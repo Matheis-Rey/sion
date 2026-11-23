@@ -7,6 +7,7 @@
   // Attention : la fonction du mot de passe est déployée avec un tiret final.
   var FONCTION_CREER_COMPTE = "creer-compte";
   var FONCTION_CHANGER_MDP = "changer-mdp-initial-";
+  var FONCTION_REINITIALISER_MDP = "reinitialiser-mdp";
 
   var client = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY, {
     auth: {
@@ -343,6 +344,19 @@
     });
   }
 
+  function demanderCode(email) {
+    return appelerFonction(FONCTION_REINITIALISER_MDP, { action: "demander", email: email });
+  }
+
+  function reinitialiserMdp(email, code, motDePasse) {
+    return appelerFonction(FONCTION_REINITIALISER_MDP, {
+      action: "verifier",
+      email: email,
+      code: code,
+      password: motDePasse
+    });
+  }
+
   function changerMdpInitial(motDePasse) {
     return appelerFonction(FONCTION_CHANGER_MDP, { password: motDePasse });
   }
@@ -398,7 +412,7 @@
   }
 
   window.SionApi = {
-    version: "8",
+    version: "9",
     connecter: connecter,
     deconnecter: deconnecter,
     utilisateur: utilisateur,
@@ -425,6 +439,8 @@
     definirAutorisation: definirAutorisation,
     creerCompte: creerCompte,
     changerMdpInitial: changerMdpInitial,
+    demanderCode: demanderCode,
+    reinitialiserMdp: reinitialiserMdp,
     messageErreur: messageErreur
   };
 })();

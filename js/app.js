@@ -2,7 +2,7 @@
   "use strict";
 
   var SITUATIONS = ["Marié(e)", "Célibataire", "Veuf(ve)", "Concubinage", "Fiancé(e)"];
-  var VUES = ["chargement", "connexion", "message", "mdp", "fiche", "membres", "responsables", "detail", "ajout", "photo"];
+  var VUES = ["chargement", "connexion", "oubli", "confidentialite", "message", "mdp", "fiche", "membres", "responsables", "detail", "ajout", "photo"];
   var VUES_CONNECTEES = ["fiche", "membres", "responsables", "detail", "ajout", "photo"];
   var VUES_AVEC_ONGLETS = ["fiche", "membres", "responsables", "detail"];
   var PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -12,7 +12,7 @@
     "Dirigeant", "Membre du Conseil", "Responsable évangélisation", "Responsable"
   ];
 
-  var VERSION = "8";
+  var VERSION = "9";
 
   var etat = vide();
   var reference = { communes: null, departements: null };
@@ -22,6 +22,9 @@
   var detailOrigine = "membres";
   var detailContact = [];
   var respons = { lignes: [], pasteurs: [] };
+  var oubliEmail = "";
+  var origineConfidentialite = "connexion";
+  var minuteurRenvoi = null;
   var modeFiche = { type: "creation" };
   var cible = null;
   var utilisateurCourant = null;
@@ -305,6 +308,8 @@
       cible = null;
       utilisateurCourant = null;
       emailDetail = "";
+      oubliEmail = "";
+      arreterMinuteur();
       $("champ-mdp").value = "";
       afficherMessage($("msg-connexion"), "");
       montrer("connexion");
@@ -1381,6 +1386,184 @@
     });
   }
 
+  /* ---------- Mot de passe oublié ---------- */
+
+  var DELAI_RENVOI = 60;
+
+  function arreterMinuteur() {
+    if (minuteurRenvoi) {
+      clearInterval(minuteurRenvoi);
+      minuteurRenvoi = null;
+    }
+  }
+
+  function demarrerDelaiRenvoi() {
+    var bouton = $("btn-oubli-renvoyer");
+    var reste = DELAI_RENVOI;
+    arreterMinuteur();
+    bouton.disabled = true;
+    bouton.textContent = "Renvoyer un code (" + reste + " s)";
+
+    minuteurRenvoi = setInterval(function () {
+      reste -= 1;
+      if (reste <= 0) {
+        arreterMinuteur();
+        bouton.disabled = false;
+        bouton.textContent = "Renvoyer un code";
+      } else {
+        bouton.textContent = "Renvoyer un code (" + reste + " s)";
+      }
+    }, 1000);
+  }
+
+  function ouvrirOubli() {
+    arreterMinuteur();
+    $("oubli-email").value = $("champ-email").value.trim();
+    $("oubli-code").value = "";
+    $("oubli-mdp").value = "";
+    $("oubli-mdp2").value = "";
+    afficherMessage($("msg-oubli-1"), "");
+    afficherMessage($("msg-oubli-2"), "");
+    $("form-oubli-1").hidden = false;
+    $("form-oubli-2").hidden = true;
+    montrer("oubli");
+  }
+
+  function retourConnexion() {
+    arreterMinuteur();
+    montrer("connexion");
+  }
+
+  function initOubli() {
+    $("btn-oubli").addEventListener("click", ouvrirOubli);
+    $("btn-oubli-retour").addEventListener("click", retourConnexion);
+    $("btn-oubli-retour2").addEventListener("click", retourConnexion);
+
+    $("btn-voir-mdp3").addEventListener("click", function () {
+      var cache = $("oubli-mdp").type === "password";
+      $("oubli-mdp").type = cache ? "text" : "password";
+      $("oubli-mdp2").type = cache ? "text" : "password";
+      this.textContent = cache ? "Masquer" : "Afficher";
+    });
+
+    $("oubli-code").addEventListener("input", function () {
+      this.value = this.value.replace(/\D/g, "").slice(0, 6);
+    });
+
+    $("form-oubli-1").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var zone = $("msg-oubli-1");
+      var bouton = $("btn-oubli-envoyer");
+      var email = $("oubli-email").value.trim();
+
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        afficherMessage(zone, "Saisissez une adresse e-mail valide.");
+        return;
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      bouton.textContent = "Envoi en cours…";
+
+      SionApi.demanderCode(email)
+        .then(function () {
+          oubliEmail = email;
+          $("oubli-info").textContent =
+            "Si cette adresse correspond à un compte, un code à 6 chiffres vient d'être envoyé à " +
+            email + ". Il est valable 10 minutes.";
+          $("form-oubli-1").hidden = true;
+          $("form-oubli-2").hidden = false;
+          afficherMessage($("msg-oubli-2"), "");
+          demarrerDelaiRenvoi();
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Recevoir un code";
+        });
+    });
+
+    $("btn-oubli-renvoyer").addEventListener("click", function () {
+      var zone = $("msg-oubli-2");
+      afficherMessage(zone, "");
+      this.disabled = true;
+
+      SionApi.demanderCode(oubliEmail)
+        .then(function () {
+          afficherMessage(zone, "Un nouveau code a été envoyé. Les codes précédents ne fonctionnent plus.", "ok");
+          demarrerDelaiRenvoi();
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+          $("btn-oubli-renvoyer").disabled = false;
+        });
+    });
+
+    $("form-oubli-2").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var zone = $("msg-oubli-2");
+      var bouton = $("btn-oubli-valider");
+      var code = $("oubli-code").value.trim();
+      var mdp = $("oubli-mdp").value;
+
+      if (!/^\d{6}$/.test(code)) {
+        afficherMessage(zone, "Saisissez le code à 6 chiffres reçu par e-mail.");
+        return;
+      }
+      if (mdp.length < 10) {
+        afficherMessage(zone, "Le mot de passe doit comporter au moins 10 caractères.");
+        return;
+      }
+      if (!/[A-Za-z]/.test(mdp) || !/[0-9]/.test(mdp)) {
+        afficherMessage(zone, "Le mot de passe doit contenir des lettres et au moins un chiffre.");
+        return;
+      }
+      if (mdp !== $("oubli-mdp2").value) {
+        afficherMessage(zone, "Les deux mots de passe ne sont pas identiques.");
+        return;
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      bouton.textContent = "Enregistrement…";
+
+      SionApi.reinitialiserMdp(oubliEmail, code, mdp)
+        .then(function () {
+          return SionApi.connecter(oubliEmail, mdp);
+        })
+        .then(function () {
+          arreterMinuteur();
+          $("oubli-code").value = "";
+          $("oubli-mdp").value = "";
+          $("oubli-mdp2").value = "";
+          return chargerFiche();
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Changer mon mot de passe";
+        });
+    });
+  }
+
+  /* ---------- Politique de confidentialité ---------- */
+
+  function ouvrirConfidentialite(origine) {
+    origineConfidentialite = origine;
+    montrer("confidentialite");
+  }
+
+  function initConfidentialite() {
+    $("lien-conf-connexion").addEventListener("click", function () { ouvrirConfidentialite("connexion"); });
+    $("lien-conf-mdp").addEventListener("click", function () { ouvrirConfidentialite("mdp"); });
+    $("lien-conf-fiche").addEventListener("click", function () { ouvrirConfidentialite("fiche"); });
+    $("btn-conf-retour").addEventListener("click", function () { montrer(origineConfidentialite); });
+  }
+
   /* ---------- Premier mot de passe personnel ---------- */
 
   function initMdp() {
@@ -1557,6 +1740,8 @@
     initAcces();
     initResponsabilites();
     initDroits();
+    initOubli();
+    initConfidentialite();
 
     $("btn-deconnexion").addEventListener("click", deconnexion);
     $("btn-quitter").addEventListener("click", deconnexion);
