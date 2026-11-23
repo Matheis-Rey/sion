@@ -47,7 +47,7 @@
       <p id="msg-connexion" class="message" role="alert" hidden></p>
       <button id="btn-connexion" class="bouton" type="submit">Se connecter</button>
     </form>
-    <p class="version">Version 7 · scripts non à jour</p>
+    <p class="version">Version 8 · scripts non à jour</p>
   </main>
 </div>
 
@@ -160,7 +160,7 @@
       <label class="ligne-case"><input id="v-email" type="checkbox"> Afficher mon adresse e-mail</label>
       <label class="ligne-case"><input id="v-baptemes" type="checkbox"> Afficher mes baptêmes</label>
     </section>
-    <p class="version">Version 7 · scripts non à jour</p>
+    <p class="version">Version 8 · scripts non à jour</p>
   </main>
 </div>
 
@@ -219,6 +219,28 @@
         <button id="btn-acces-envoyer" class="bouton" type="submit">Créer le compte et envoyer l'e-mail</button>
         <button id="btn-acces-annuler" class="bouton bouton-secondaire" type="button">Annuler</button>
       </form>
+    </section>
+    <section id="carte-respons" class="carte" hidden>
+      <h2>Responsabilités</h2>
+      <ul id="liste-respons" class="liste-simple"></ul>
+      <p id="aide-photo-respons" class="aide" hidden>Ce membre n'a pas de photo de profil : une nomination restera en attente jusqu'à l'ajout d'une photo.</p>
+      <button id="btn-nommer" class="bouton bouton-secondaire" type="button">Ajouter comme responsable</button>
+      <form id="form-nommer" hidden novalidate>
+        <p class="aide">Choisissez le ou les départements dont ce membre devient responsable.</p>
+        <div id="nommer-deps"></div>
+        <p id="msg-nommer" class="message" role="alert" hidden></p>
+        <button id="btn-nommer-ok" class="bouton" type="submit">Confirmer la nomination</button>
+        <button id="btn-nommer-annuler" class="bouton bouton-secondaire" type="button">Annuler</button>
+      </form>
+    </section>
+    <section id="carte-droits" class="carte" hidden>
+      <h2>Fonctions et autorisations</h2>
+      <h3 class="sous-titre-carte">Fonctions</h3>
+      <div id="liste-fonctions"></div>
+      <button id="btn-fonctions" class="bouton bouton-secondaire" type="button">Enregistrer les fonctions</button>
+      <h3 class="sous-titre-carte">Autorisations</h3>
+      <div id="liste-autorisations"></div>
+      <p id="msg-droits" class="message" role="status" hidden></p>
     </section>
   </main>
 </div>
@@ -303,16 +325,26 @@
 
 <input id="champ-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden>
 
+<!-- Responsables des départements -->
+<div id="vue-responsables" class="vue" hidden>
+  <main class="contenu">
+    <h1 class="titre-page">Responsables</h1>
+    <p id="msg-responsables" class="message" role="status" hidden></p>
+    <div id="contenu-responsables"></div>
+  </main>
+</div>
+
 <!-- Navigation du bas -->
 <nav id="onglets" class="onglets" aria-label="Navigation principale" hidden>
   <button id="onglet-fiche" class="onglet" type="button">Ma fiche</button>
   <button id="onglet-membres" class="onglet" type="button">Membres</button>
+  <button id="onglet-responsables" class="onglet" type="button">Responsables</button>
 </nav>
 
-<script src="js/config.js?v=7"></script>
-<script src="js/supabase.js?v=7"></script>
-<script src="js/api.js?v=7"></script>
-<script src="js/photo.js?v=7"></script>
-<script src="js/app.js?v=7"></script>
+<script src="js/config.js?v=8"></script>
+<script src="js/supabase.js?v=8"></script>
+<script src="js/api.js?v=8"></script>
+<script src="js/photo.js?v=8"></script>
+<script src="js/app.js?v=8"></script>
 </body>
 </html>
