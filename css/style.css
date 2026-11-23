@@ -402,3 +402,19 @@ input[type="range"] {
 
 .ligne-aide { margin: -4px 0 8px 36px; font-size: 0.85rem; }
 .groupe-personnes { list-style: none; margin: 0; padding: 0; }
+
+/* Liens, politique de confidentialité */
+.liens { margin: 12px 0 0; text-align: center; }
+
+.politique h1 { margin-bottom: 8px; }
+.politique h2 { margin: 18px 0 6px; font-size: 1.1rem; }
+.politique ul { margin: 0 0 10px; padding-left: 20px; }
+.politique li { margin-bottom: 4px; }
+
+.bandeau {
+  padding: 10px 12px;
+  border: 1.5px dashed var(--dore-fonce);
+  border-radius: 8px;
+  background: #FFFFFF;
+  font-size: 0.92rem;
+}
