@@ -2,19 +2,26 @@
   "use strict";
 
   var SITUATIONS = ["Marié(e)", "Célibataire", "Veuf(ve)", "Concubinage", "Fiancé(e)"];
-  var VUES = ["chargement", "connexion", "message", "mdp", "fiche", "membres", "detail", "ajout", "photo"];
-  var VUES_CONNECTEES = ["fiche", "membres", "detail", "ajout", "photo"];
-  var VUES_AVEC_ONGLETS = ["fiche", "membres", "detail"];
+  var VUES = ["chargement", "connexion", "message", "mdp", "fiche", "membres", "responsables", "detail", "ajout", "photo"];
+  var VUES_CONNECTEES = ["fiche", "membres", "responsables", "detail", "ajout", "photo"];
+  var VUES_AVEC_ONGLETS = ["fiche", "membres", "responsables", "detail"];
   var PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var PHOTO_MAX = 10 * 1024 * 1024;
+  var FONCTIONS = [
+    "Membre", "Ordre et Accueil", "Pasteur", "Chantre", "Instrumentiste",
+    "Dirigeant", "Membre du Conseil", "Responsable évangélisation", "Responsable"
+  ];
 
-  var VERSION = "7";
+  var VERSION = "8";
 
   var etat = vide();
   var reference = { communes: null, departements: null };
   var annuaire = { membres: [], charge: false };
   var photos = { urls: {}, horodatage: 0, erreur: "" };
   var detailCourant = null;
+  var detailOrigine = "membres";
+  var detailContact = [];
+  var respons = { lignes: [], pasteurs: [] };
   var modeFiche = { type: "creation" };
   var cible = null;
   var utilisateurCourant = null;
@@ -33,6 +40,19 @@
            etat.permissions.indexOf("gerer_membres") !== -1;
   }
 
+  function estPasteur() {
+    return etat.fonctions.indexOf("Pasteur") !== -1;
+  }
+
+  function peutNommer() {
+    return estPasteur() || etat.permissions.indexOf("nommer_responsables") !== -1;
+  }
+
+  function nomDepartement(id) {
+    var d = (reference.departements || []).filter(function (x) { return x.id === id; })[0];
+    return d ? d.nom : "";
+  }
+
   /* ---------- Utilitaires d'affichage ---------- */
 
   function montrer(nom) {
@@ -46,8 +66,13 @@
     $("onglets").hidden = !avecOnglets;
     document.body.className = avecOnglets ? "avec-onglets" : "";
 
-    var actif = (nom === "fiche") ? "onglet-fiche" : "onglet-membres";
-    ["onglet-fiche", "onglet-membres"].forEach(function (id) {
+    var actif = "onglet-membres";
+    if (nom === "fiche") {
+      actif = "onglet-fiche";
+    } else if (nom === "responsables" || (nom === "detail" && detailOrigine === "responsables")) {
+      actif = "onglet-responsables";
+    }
+    ["onglet-fiche", "onglet-membres", "onglet-responsables"].forEach(function (id) {
       if (id === actif && avecOnglets) {
         $(id).setAttribute("aria-current", "page");
       } else {
@@ -274,6 +299,9 @@
       annuaire = { membres: [], charge: false };
       photos = { urls: {}, horodatage: 0, erreur: "" };
       detailCourant = null;
+      detailOrigine = "membres";
+      detailContact = [];
+      respons = { lignes: [], pasteurs: [] };
       cible = null;
       utilisateurCourant = null;
       emailDetail = "";
@@ -599,7 +627,7 @@
       texteBloc.appendChild(creer("span", "item-sous", sous || "—"));
       bouton.appendChild(texteBloc);
 
-      bouton.addEventListener("click", function () { ouvrirDetail(m.id); });
+      bouton.addEventListener("click", function () { ouvrirDetail(m.id, "membres"); });
       li.appendChild(bouton);
       liste.appendChild(li);
     });
@@ -613,10 +641,31 @@
 
   /* ---------- Détail d'un membre ---------- */
 
-  function ouvrirDetail(id) {
+  function redessinerInfos() {
+    var m = detailCourant;
+    if (!m) { return; }
+
+    var lignes = [
+      ["Lieu d'habitation", texte(lieu(m))],
+      ["Situation matrimoniale", texte(m.situation_matrimoniale)]
+    ];
+    if (m.statut !== "visiteur") {
+      lignes = lignes.concat(lignesDepartements(m.departements));
+      var resp = respons.lignes
+        .filter(function (l) { return l.membreId === m.id && l.statut === "actif"; })
+        .map(function (l) { return nomDepartement(l.deptId); })
+        .filter(Boolean);
+      if (resp.length) { lignes.push(["Responsable de", resp.join(", ")]); }
+    }
+    remplirListe($("d-infos"), lignes.concat(detailContact));
+  }
+
+  function ouvrirDetail(id, origine) {
     var m = annuaire.membres.filter(function (x) { return x.id === id; })[0];
     if (!m) { return; }
+    if (origine) { detailOrigine = origine; }
     detailCourant = m;
+    detailContact = [];
 
     remplirAvatar($("d-avatar"), m);
     chargerPhotos([m.photo_path]).then(function (nouveau) {
@@ -631,19 +680,26 @@
     $("d-actions").hidden = !gerer;
     emailDetail = "";
     afficherAcces(m);
-
-    var base = [
-      ["Lieu d'habitation", texte(lieu(m))],
-      ["Situation matrimoniale", texte(m.situation_matrimoniale)]
-    ].concat(m.statut === "visiteur" ? [] : lignesDepartements(m.departements));
-    remplirListe($("d-infos"), base);
+    $("form-nommer").hidden = true;
+    $("btn-nommer").hidden = false;
+    afficherResponsabilites();
+    afficherDroits();
+    redessinerInfos();
     montrer("detail");
+
+    chargerResponsables()
+      .then(function () {
+        if (detailCourant !== m) { return; }
+        redessinerInfos();
+        afficherResponsabilites();
+      })
+      .catch(function () { /* les informations de base restent affichées */ });
 
     var requete = gerer ? SionApi.detailPrive(id) : SionApi.contactVisible(id);
 
     requete.then(function (c) {
       if (!c || detailCourant !== m) { return; }
-      var lignes = base.slice();
+      var lignes = [];
       if (gerer) {
         emailDetail = c.email || "";
         lignes.push(["Téléphone", formaterTelephone(c.telephone)]);
@@ -660,9 +716,325 @@
           lignes.push(["Baptême du Saint-Esprit", ouiNon(c.bapteme_esprit)]);
         }
       }
-      remplirListe($("d-infos"), lignes);
+      detailContact = lignes;
+      redessinerInfos();
     }).catch(function () {
       /* les informations de base restent affichées */
+    });
+  }
+
+  /* ---------- Responsables et autorisations ---------- */
+
+  function chargerResponsables() {
+    return Promise.all([SionApi.listerResponsables(), SionApi.listerPasteurs()]).then(function (r) {
+      respons.lignes = r[0];
+      respons.pasteurs = r[1];
+    });
+  }
+
+  function assurerAnnuaire() {
+    return annuaire.charge ? Promise.resolve() : chargerAnnuaire();
+  }
+
+  function ajouterPersonnes(parent, personnes) {
+    var liste = creer("ul", "groupe-personnes");
+    personnes.forEach(function (p) {
+      var li = creer("li");
+      var bouton = creer("button", "item-membre");
+      bouton.type = "button";
+
+      var avatar = creer("span", "avatar avatar-petit");
+      remplirAvatar(avatar, p);
+      bouton.appendChild(avatar);
+
+      var bloc = creer("span", "item-texte");
+      bloc.appendChild(creer("strong", null, nomComplet(p)));
+      bouton.appendChild(bloc);
+
+      bouton.addEventListener("click", function () {
+        assurerAnnuaire().then(function () { ouvrirDetail(p.id, "responsables"); });
+      });
+      li.appendChild(bouton);
+      liste.appendChild(li);
+    });
+    parent.appendChild(liste);
+  }
+
+  function dessinerResponsables() {
+    var zone = $("contenu-responsables");
+    zone.textContent = "";
+
+    var cartePasteur = creer("section", "carte");
+    cartePasteur.appendChild(creer("h2", null, "Pasteur"));
+    cartePasteur.appendChild(creer("p", "aide", "Premier responsable de tous les départements."));
+    if (respons.pasteurs.length) {
+      ajouterPersonnes(cartePasteur, respons.pasteurs.slice().sort(function (a, b) {
+        return comparer(a.nom || "", b.nom || "");
+      }));
+    }
+    zone.appendChild(cartePasteur);
+
+    (reference.departements || []).slice()
+      .sort(function (a, b) { return a.id - b.id; })
+      .forEach(function (d) {
+        var carte = creer("section", "carte");
+        carte.appendChild(creer("h2", null, d.nom));
+
+        var chefs = respons.lignes
+          .filter(function (l) { return l.deptId === d.id && l.statut === "actif"; })
+          .map(function (l) {
+            return { id: l.membreId, prenom: l.prenom, nom: l.nom, photo_path: l.photo_path };
+          })
+          .sort(function (a, b) { return comparer(a.nom || "", b.nom || ""); });
+
+        if (chefs.length) {
+          ajouterPersonnes(carte, chefs);
+        } else {
+          carte.appendChild(creer("p", "aide", "Aucun responsable nommé pour le moment."));
+        }
+        zone.appendChild(carte);
+      });
+  }
+
+  function ouvrirResponsables() {
+    montrer("responsables");
+    afficherMessage($("msg-responsables"), "");
+    dessinerResponsables();
+
+    return Promise.all([assurerAnnuaire(), chargerResponsables()])
+      .then(function () {
+        dessinerResponsables();
+        var chemins = respons.pasteurs.map(function (p) { return p.photo_path; })
+          .concat(respons.lignes.map(function (l) { return l.photo_path; }));
+        return chargerPhotos(chemins);
+      })
+      .then(function (nouveau) {
+        if (nouveau) { dessinerResponsables(); }
+      })
+      .catch(function (err) {
+        afficherMessage($("msg-responsables"), SionApi.messageErreur(err));
+      });
+  }
+
+  function afficherResponsabilites() {
+    var m = detailCourant;
+    var visible = !!m && m.statut === "membre" && peutNommer();
+    $("carte-respons").hidden = !visible;
+    if (!visible) { return; }
+
+    var liste = $("liste-respons");
+    liste.textContent = "";
+    var siennes = respons.lignes.filter(function (l) { return l.membreId === m.id; });
+
+    if (!siennes.length) {
+      liste.appendChild(creer("li", "ligne-respons", "Aucune responsabilité pour le moment."));
+    }
+    siennes.forEach(function (l) {
+      var li = creer("li", "ligne-respons");
+      var libelle = nomDepartement(l.deptId) + (l.statut === "en_attente" ? " — en attente de photo" : "");
+      li.appendChild(creer("span", null, libelle));
+      if (estPasteur()) {
+        var retirer = creer("button", "bouton-texte", "Retirer");
+        retirer.type = "button";
+        retirer.addEventListener("click", function () { retirerResponsabilite(m, l); });
+        li.appendChild(retirer);
+      }
+      liste.appendChild(li);
+    });
+
+    $("aide-photo-respons").hidden = !!m.photo_path;
+  }
+
+  function retirerResponsabilite(m, ligne) {
+    var libelle = nomDepartement(ligne.deptId);
+    if (!window.confirm("Retirer la responsabilité « " + libelle + " » à " + nomComplet(m) + " ? Les droits associés seront supprimés.")) {
+      return;
+    }
+    SionApi.retirerResponsable(m.id, ligne.deptId)
+      .then(chargerResponsables)
+      .then(function () {
+        afficherResponsabilites();
+        redessinerInfos();
+        afficherMessage($("msg-detail"), "La responsabilité a été retirée.", "ok");
+      })
+      .catch(function (err) {
+        afficherMessage($("msg-detail"), SionApi.messageErreur(err));
+      });
+  }
+
+  function initResponsabilites() {
+    $("btn-nommer").addEventListener("click", function () {
+      var m = detailCourant;
+      if (!m) { return; }
+
+      var deja = respons.lignes
+        .filter(function (l) { return l.membreId === m.id; })
+        .map(function (l) { return l.deptId; });
+      var disponibles = (reference.departements || []).slice()
+        .sort(function (a, b) { return a.id - b.id; })
+        .filter(function (d) { return deja.indexOf(d.id) === -1; });
+
+      if (!disponibles.length) {
+        afficherMessage($("msg-detail"), "Ce membre est déjà responsable de tous les départements.", "ok");
+        return;
+      }
+
+      var zone = $("nommer-deps");
+      zone.textContent = "";
+      disponibles.forEach(function (d) {
+        var etiquette = creer("label", "ligne-case");
+        var caseCochee = creer("input");
+        caseCochee.type = "checkbox";
+        caseCochee.value = String(d.id);
+        etiquette.appendChild(caseCochee);
+        etiquette.appendChild(document.createTextNode(" " + d.nom));
+        zone.appendChild(etiquette);
+      });
+
+      afficherMessage($("msg-nommer"), "");
+      $("form-nommer").hidden = false;
+      this.hidden = true;
+    });
+
+    $("btn-nommer-annuler").addEventListener("click", function () {
+      $("form-nommer").hidden = true;
+      $("btn-nommer").hidden = false;
+    });
+
+    $("form-nommer").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var m = detailCourant;
+      var zone = $("msg-nommer");
+      var bouton = $("btn-nommer-ok");
+      if (!m) { return; }
+
+      var ids = [];
+      var cases = $("nommer-deps").querySelectorAll("input[type=checkbox]");
+      for (var i = 0; i < cases.length; i++) {
+        if (cases[i].checked) { ids.push(Number(cases[i].value)); }
+      }
+      if (!ids.length) {
+        afficherMessage(zone, "Choisissez au moins un département.");
+        return;
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      bouton.textContent = "Enregistrement…";
+
+      SionApi.nommerResponsable(m.id, ids)
+        .then(function (resultat) {
+          return chargerResponsables().then(function () { return resultat; });
+        })
+        .then(function (resultat) {
+          $("form-nommer").hidden = true;
+          $("btn-nommer").hidden = false;
+          afficherResponsabilites();
+          redessinerInfos();
+          var attente = resultat && resultat.en_attente > 0;
+          afficherMessage(
+            $("msg-detail"),
+            attente
+              ? "Nomination enregistrée. Elle restera en attente jusqu'à l'ajout d'une photo de profil."
+              : "Nomination confirmée.",
+            "ok"
+          );
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Confirmer la nomination";
+        });
+    });
+  }
+
+  function afficherDroits() {
+    var m = detailCourant;
+    var visible = !!m && m.statut === "membre" && estPasteur();
+    $("carte-droits").hidden = !visible;
+    if (!visible) { return; }
+
+    afficherMessage($("msg-droits"), "");
+    $("liste-fonctions").textContent = "";
+    $("liste-autorisations").textContent = "";
+
+    Promise.all([SionApi.chargerFonctions(m.id), SionApi.chargerAutorisations(m.id)])
+      .then(function (r) {
+        if (detailCourant !== m) { return; }
+
+        FONCTIONS.forEach(function (f) {
+          var etiquette = creer("label", "ligne-case");
+          var caseCochee = creer("input");
+          caseCochee.type = "checkbox";
+          caseCochee.value = f;
+          caseCochee.checked = r[0].indexOf(f) !== -1;
+          etiquette.appendChild(caseCochee);
+          etiquette.appendChild(document.createTextNode(" " + f));
+          $("liste-fonctions").appendChild(etiquette);
+        });
+
+        r[1].catalogue.forEach(function (a) {
+          var etiquette = creer("label", "ligne-case");
+          var caseCochee = creer("input");
+          caseCochee.type = "checkbox";
+          caseCochee.setAttribute("data-code", a.code);
+          caseCochee.checked = r[1].accordees.indexOf(a.code) !== -1;
+          etiquette.appendChild(caseCochee);
+          etiquette.appendChild(document.createTextNode(" " + a.libelle));
+          $("liste-autorisations").appendChild(etiquette);
+          $("liste-autorisations").appendChild(creer("p", "aide ligne-aide", a.description));
+        });
+      })
+      .catch(function (err) {
+        afficherMessage($("msg-droits"), SionApi.messageErreur(err));
+      });
+  }
+
+  function initDroits() {
+    $("btn-fonctions").addEventListener("click", function () {
+      var m = detailCourant;
+      var bouton = this;
+      if (!m) { return; }
+
+      var choisies = [];
+      var cases = $("liste-fonctions").querySelectorAll("input[type=checkbox]");
+      for (var i = 0; i < cases.length; i++) {
+        if (cases[i].checked) { choisies.push(cases[i].value); }
+      }
+
+      bouton.disabled = true;
+      SionApi.definirFonctions(m.id, choisies)
+        .then(function () {
+          afficherMessage($("msg-droits"), "Les fonctions ont été enregistrées.", "ok");
+          return (etat.membre && m.id === etat.membre.id) ? rafraichirFiche() : null;
+        })
+        .catch(function (err) {
+          afficherMessage($("msg-droits"), SionApi.messageErreur(err));
+        })
+        .then(function () { bouton.disabled = false; });
+    });
+
+    $("liste-autorisations").addEventListener("change", function (e) {
+      var caseCochee = e.target;
+      var code = caseCochee.getAttribute && caseCochee.getAttribute("data-code");
+      var m = detailCourant;
+      if (!code || !m) { return; }
+
+      var valeur = caseCochee.checked;
+      caseCochee.disabled = true;
+
+      SionApi.definirAutorisation(m.id, code, valeur)
+        .then(function () {
+          afficherMessage($("msg-droits"), "L'autorisation a été enregistrée.", "ok");
+          return (etat.membre && m.id === etat.membre.id) ? rafraichirFiche() : null;
+        })
+        .catch(function (err) {
+          caseCochee.checked = !valeur;
+          afficherMessage($("msg-droits"), SionApi.messageErreur(err));
+        })
+        .then(function () { caseCochee.disabled = false; });
     });
   }
 
@@ -1183,18 +1555,27 @@
     initAjout();
     initMdp();
     initAcces();
+    initResponsabilites();
+    initDroits();
 
     $("btn-deconnexion").addEventListener("click", deconnexion);
     $("btn-quitter").addEventListener("click", deconnexion);
     $("btn-reessayer").addEventListener("click", chargerFiche);
-    $("btn-retour-liste").addEventListener("click", function () { montrer("membres"); });
+    $("btn-retour-liste").addEventListener("click", function () {
+      montrer(detailOrigine === "responsables" ? "responsables" : "membres");
+    });
     $("onglet-fiche").addEventListener("click", function () {
       afficherMessage($("msg-fiche"), "");
       montrer("fiche");
     });
     $("onglet-membres").addEventListener("click", function () {
       afficherMessage($("msg-membres"), "");
+      detailOrigine = "membres";
       ouvrirMembres();
+    });
+    $("onglet-responsables").addEventListener("click", function () {
+      detailOrigine = "responsables";
+      ouvrirResponsables();
     });
 
     SionApi.surChangementSession(function (evenement) {

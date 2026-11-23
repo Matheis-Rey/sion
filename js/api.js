@@ -3,6 +3,11 @@
 
   var cfg = window.SION_CONFIG;
 
+  // Noms EXACTS des fonctions déployées dans Supabase (Edge Functions).
+  // Attention : la fonction du mot de passe est déployée avec un tiret final.
+  var FONCTION_CREER_COMPTE = "creer-compte";
+  var FONCTION_CHANGER_MDP = "changer-mdp-initial-";
+
   var client = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY, {
     auth: {
       persistSession: true,
@@ -29,6 +34,10 @@
 
     if (code === "FN") {
       return err.message;
+    }
+    if (navigator.onLine && err && (err.name === "FunctionsFetchError" ||
+        texte.indexOf("failed to send a request") !== -1)) {
+      return "Le service du serveur n'a pas répondu. Réessayez dans un instant ; si le problème continue, prévenez l'administrateur de l'application.";
     }
     if (!navigator.onLine || texte.indexOf("failed to send a request") !== -1 ||
         texte.indexOf("failed to fetch") !== -1 ||
@@ -231,6 +240,79 @@
       .then(verifier);
   }
 
+  /* ---------- Responsables, fonctions et autorisations ---------- */
+
+  function listerResponsables() {
+    return client
+      .from("department_leaders")
+      .select("member_id, department_id, statut, members!member_id(prenom, nom, photo_path)")
+      .then(verifier)
+      .then(function (lignes) {
+        return lignes.map(function (l) {
+          var m = Array.isArray(l.members) ? l.members[0] : l.members;
+          return {
+            membreId: l.member_id,
+            deptId: l.department_id,
+            statut: l.statut,
+            prenom: m ? m.prenom : "",
+            nom: m ? m.nom : "",
+            photo_path: m ? m.photo_path : null
+          };
+        });
+      });
+  }
+
+  function listerPasteurs() {
+    return client.rpc("liste_pasteurs").then(verifier);
+  }
+
+  function nommerResponsable(membreId, departements) {
+    return client
+      .rpc("nommer_responsable", { p_member: membreId, p_departements: departements })
+      .then(verifier);
+  }
+
+  function retirerResponsable(membreId, departementId) {
+    return client
+      .rpc("retirer_responsable", { p_member: membreId, p_departement: departementId })
+      .then(verifier);
+  }
+
+  function chargerFonctions(membreId) {
+    return client
+      .from("member_functions")
+      .select("fonction")
+      .eq("member_id", membreId)
+      .then(verifier)
+      .then(function (lignes) {
+        return lignes.map(function (l) { return l.fonction; });
+      });
+  }
+
+  function chargerAutorisations(membreId) {
+    return Promise.all([
+      client.from("autorisations_catalogue").select("code, libelle, description"),
+      client.from("member_permissions").select("permission").eq("member_id", membreId)
+    ]).then(function (r) {
+      return {
+        catalogue: verifier(r[0]),
+        accordees: verifier(r[1]).map(function (l) { return l.permission; })
+      };
+    });
+  }
+
+  function definirFonctions(membreId, fonctions) {
+    return client
+      .rpc("definir_fonctions", { p_member: membreId, p_fonctions: fonctions })
+      .then(verifier);
+  }
+
+  function definirAutorisation(membreId, code, actif) {
+    return client
+      .rpc("definir_autorisation", { p_member: membreId, p_code: code, p_actif: actif })
+      .then(verifier);
+  }
+
   /* ---------- Fonctions serveur (accès et mot de passe) ---------- */
 
   function appelerFonction(nom, corps) {
@@ -254,7 +336,7 @@
   }
 
   function creerCompte(membreId, email, action) {
-    return appelerFonction("creer-compte", {
+    return appelerFonction(FONCTION_CREER_COMPTE, {
       membre_id: membreId,
       email: email || null,
       action: action || "creer"
@@ -262,7 +344,7 @@
   }
 
   function changerMdpInitial(motDePasse) {
-    return appelerFonction("changer-mdp-initial-", { password: motDePasse });
+    return appelerFonction(FONCTION_CHANGER_MDP, { password: motDePasse });
   }
 
   /* ---------- Photos de profil ---------- */
@@ -316,7 +398,7 @@
   }
 
   window.SionApi = {
-    version: "7",
+    version: "8",
     connecter: connecter,
     deconnecter: deconnecter,
     utilisateur: utilisateur,
@@ -333,6 +415,14 @@
     envoyerPhoto: envoyerPhoto,
     urlsPhotos: urlsPhotos,
     definirDepartements: definirDepartements,
+    listerResponsables: listerResponsables,
+    listerPasteurs: listerPasteurs,
+    nommerResponsable: nommerResponsable,
+    retirerResponsable: retirerResponsable,
+    chargerFonctions: chargerFonctions,
+    chargerAutorisations: chargerAutorisations,
+    definirFonctions: definirFonctions,
+    definirAutorisation: definirAutorisation,
     creerCompte: creerCompte,
     changerMdpInitial: changerMdpInitial,
     messageErreur: messageErreur
