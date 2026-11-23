@@ -380,3 +380,25 @@ input[type="range"] {
   font-size: 0.8rem;
   color: var(--dore-fonce);
 }
+
+/* Responsables et droits */
+.liste-simple { list-style: none; margin: 0 0 12px; padding: 0; }
+
+.ligne-respons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--dore);
+}
+
+.sous-titre-carte {
+  margin: 14px 0 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--dore-fonce);
+}
+
+.ligne-aide { margin: -4px 0 8px 36px; font-size: 0.85rem; }
+.groupe-personnes { list-style: none; margin: 0; padding: 0; }
