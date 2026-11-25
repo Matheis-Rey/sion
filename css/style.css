@@ -418,3 +418,9 @@ input[type="range"] {
   background: #FFFFFF;
   font-size: 0.92rem;
 }
+
+.bouton-danger {
+  background: var(--absence);
+  border-color: var(--absence);
+  color: #FFFFFF;
+}
