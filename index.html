@@ -51,7 +51,7 @@
       <button id="btn-oubli" class="bouton-texte" type="button">Mot de passe oublié ?</button><br>
       <button id="lien-conf-connexion" class="bouton-texte" type="button">Politique de confidentialité</button>
     </p>
-    <p class="version">Version 10 · scripts non à jour</p>
+    <p class="version">Version 11 · scripts non à jour</p>
   </main>
 </div>
 
@@ -275,7 +275,7 @@
       <label class="ligne-case"><input id="v-baptemes" type="checkbox"> Afficher mes baptêmes</label>
     </section>
     <p class="liens"><button id="lien-conf-fiche" class="bouton-texte" type="button">Politique de confidentialité</button></p>
-    <p class="version">Version 10 · scripts non à jour</p>
+    <p class="version">Version 11 · scripts non à jour</p>
   </main>
 </div>
 
@@ -475,6 +475,89 @@
 
 <input id="champ-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden>
 
+<!-- Menu « Plus » -->
+<div id="vue-plus" class="vue" hidden>
+  <main class="contenu">
+    <h1 class="titre-page">Plus</h1>
+    <ul class="menu-liste">
+      <li>
+        <button id="menu-responsables" class="item-menu" type="button">
+          <strong>Responsables</strong>
+          <span>Les responsables des départements</span>
+        </button>
+      </li>
+      <li>
+        <button id="menu-confidentialite" class="item-menu" type="button">
+          <strong>Politique de confidentialité</strong>
+          <span>Comment vos informations sont utilisées et protégées</span>
+        </button>
+      </li>
+    </ul>
+  </main>
+</div>
+
+<!-- Événements : liste -->
+<div id="vue-evenements" class="vue" hidden>
+  <main class="contenu">
+    <h1 class="titre-page">Événements</h1>
+    <button id="btn-evt-ajouter" class="bouton" type="button" hidden>Ajouter un événement</button>
+    <p id="msg-evenements" class="message" role="status" hidden></p>
+    <h2 id="titre-evt-avenir" class="sous-titre-page" hidden>À venir</h2>
+    <div id="liste-evt-avenir"></div>
+    <h2 id="titre-evt-passes" class="sous-titre-page" hidden>Passés</h2>
+    <div id="liste-evt-passes"></div>
+    <p id="evt-vide" class="aide" hidden>Aucun événement pour le moment.</p>
+  </main>
+</div>
+
+<!-- Événements : détail -->
+<div id="vue-evenement" class="vue" hidden>
+  <main class="contenu">
+    <button id="btn-evt-retour" class="bouton-texte" type="button">← Retour aux événements</button>
+    <p id="msg-evenement" class="message" role="status" hidden></p>
+    <article class="carte">
+      <h1 id="evt-titre-detail"></h1>
+      <p id="evt-quand" class="fonctions"></p>
+      <dl id="evt-infos" class="infos"></dl>
+      <div id="evt-actions" class="actions" hidden>
+        <button id="btn-evt-modifier" class="bouton bouton-secondaire" type="button">Modifier</button>
+        <button id="btn-evt-supprimer" class="bouton bouton-danger" type="button">Supprimer</button>
+      </div>
+    </article>
+  </main>
+</div>
+
+<!-- Événements : formulaire -->
+<div id="vue-evenement-form" class="vue" hidden>
+  <main class="contenu">
+    <form id="form-evenement" class="carte" novalidate>
+      <h2 id="titre-form-evt">Nouvel événement</h2>
+
+      <label for="evt-titre">Titre</label>
+      <input id="evt-titre" type="text" maxlength="120" autocomplete="off">
+
+      <label for="evt-date">Date</label>
+      <input id="evt-date" type="date">
+
+      <label for="evt-heure">Heure (facultatif)</label>
+      <input id="evt-heure" type="time">
+
+      <label for="evt-lieu">Lieu (facultatif)</label>
+      <input id="evt-lieu" type="text" maxlength="200" autocomplete="off">
+
+      <label for="evt-description">Description (facultatif)</label>
+      <textarea id="evt-description" rows="4" maxlength="2000"></textarea>
+
+      <label for="evt-infos">Informations complémentaires (facultatif)</label>
+      <textarea id="evt-infos" rows="3" maxlength="1000"></textarea>
+
+      <p id="msg-evt-form" class="message" role="alert" hidden></p>
+      <button id="btn-evt-enregistrer" class="bouton" type="submit">Enregistrer</button>
+      <button id="btn-evt-annuler" class="bouton bouton-secondaire" type="button">Annuler</button>
+    </form>
+  </main>
+</div>
+
 <!-- Responsables des départements -->
 <div id="vue-responsables" class="vue" hidden>
   <main class="contenu">
@@ -488,13 +571,14 @@
 <nav id="onglets" class="onglets" aria-label="Navigation principale" hidden>
   <button id="onglet-fiche" class="onglet" type="button">Ma fiche</button>
   <button id="onglet-membres" class="onglet" type="button">Membres</button>
-  <button id="onglet-responsables" class="onglet" type="button">Responsables</button>
+  <button id="onglet-evenements" class="onglet" type="button">Événements</button>
+  <button id="onglet-plus" class="onglet" type="button">Plus</button>
 </nav>
 
-<script src="js/config.js?v=10"></script>
-<script src="js/supabase.js?v=10"></script>
-<script src="js/api.js?v=10"></script>
-<script src="js/photo.js?v=10"></script>
-<script src="js/app.js?v=10"></script>
+<script src="js/config.js?v=11"></script>
+<script src="js/supabase.js?v=11"></script>
+<script src="js/api.js?v=11"></script>
+<script src="js/photo.js?v=11"></script>
+<script src="js/app.js?v=11"></script>
 </body>
 </html>
