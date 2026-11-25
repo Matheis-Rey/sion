@@ -2,9 +2,9 @@
   "use strict";
 
   var SITUATIONS = ["Marié(e)", "Célibataire", "Veuf(ve)", "Concubinage", "Fiancé(e)"];
-  var VUES = ["chargement", "connexion", "oubli", "confidentialite", "message", "mdp", "fiche", "membres", "responsables", "detail", "ajout", "photo"];
-  var VUES_CONNECTEES = ["fiche", "membres", "responsables", "detail", "ajout", "photo"];
-  var VUES_AVEC_ONGLETS = ["fiche", "membres", "responsables", "detail"];
+  var VUES = ["chargement", "connexion", "oubli", "confidentialite", "message", "mdp", "fiche", "membres", "responsables", "plus", "evenements", "evenement", "evenement-form", "detail", "ajout", "photo"];
+  var VUES_CONNECTEES = ["fiche", "membres", "responsables", "plus", "evenements", "evenement", "evenement-form", "detail", "ajout", "photo"];
+  var VUES_AVEC_ONGLETS = ["fiche", "membres", "responsables", "plus", "evenements", "evenement", "detail"];
   var PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var PHOTO_MAX = 10 * 1024 * 1024;
   var FONCTIONS = [
@@ -12,7 +12,7 @@
     "Dirigeant", "Membre du Conseil", "Responsable évangélisation", "Responsable"
   ];
 
-  var VERSION = "10";
+  var VERSION = "11";
 
   var etat = vide();
   var reference = { communes: null, departements: null };
@@ -22,6 +22,9 @@
   var detailOrigine = "membres";
   var detailContact = [];
   var respons = { lignes: [], pasteurs: [] };
+  var evenements = { lignes: [], charge: false };
+  var evenementCourant = null;
+  var modeEvenement = { type: "creation" };
   var oubliEmail = "";
   var origineConfidentialite = "connexion";
   var minuteurRenvoi = null;
@@ -80,10 +83,12 @@
     var actif = "onglet-membres";
     if (nom === "fiche") {
       actif = "onglet-fiche";
-    } else if (nom === "responsables" || (nom === "detail" && detailOrigine === "responsables")) {
-      actif = "onglet-responsables";
+    } else if (nom === "evenements" || nom === "evenement") {
+      actif = "onglet-evenements";
+    } else if (nom === "plus" || nom === "responsables" || (nom === "detail" && detailOrigine === "responsables")) {
+      actif = "onglet-plus";
     }
-    ["onglet-fiche", "onglet-membres", "onglet-responsables"].forEach(function (id) {
+    ["onglet-fiche", "onglet-membres", "onglet-evenements", "onglet-plus"].forEach(function (id) {
       if (id === actif && avecOnglets) {
         $(id).setAttribute("aria-current", "page");
       } else {
@@ -317,6 +322,8 @@
       utilisateurCourant = null;
       emailDetail = "";
       oubliEmail = "";
+      evenements = { lignes: [], charge: false };
+      evenementCourant = null;
       arreterMinuteur();
       $("champ-mdp").value = "";
       afficherMessage($("msg-connexion"), "");
@@ -1586,6 +1593,238 @@
     });
   }
 
+  /* ---------- Événements ---------- */
+
+  function peutEvenements() {
+    return estPasteur() || etat.permissions.indexOf("gerer_evenements") !== -1;
+  }
+
+  function deuxChiffres(n) {
+    return n < 10 ? "0" + n : String(n);
+  }
+
+  function aujourdhui() {
+    var d = new Date();
+    return d.getFullYear() + "-" + deuxChiffres(d.getMonth() + 1) + "-" + deuxChiffres(d.getDate());
+  }
+
+  function dateUtc(iso) {
+    var p = iso.split("-");
+    return new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])));
+  }
+
+  function dateLongue(iso) {
+    var texteDate = dateUtc(iso).toLocaleDateString("fr-FR", {
+      weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC"
+    });
+    return texteDate.charAt(0).toUpperCase() + texteDate.slice(1);
+  }
+
+  function heureCourte(heure) {
+    return heure ? heure.slice(0, 2) + " h " + heure.slice(3, 5) : "";
+  }
+
+  function cleEvenement(e) {
+    return e.date_debut + " " + (e.heure_debut || "00:00:00");
+  }
+
+  function ouvrirEvenements() {
+    var gerer = peutEvenements();
+    $("btn-evt-ajouter").hidden = !gerer;
+    montrer("evenements");
+    if (!evenements.charge) {
+      return chargerEvenements();
+    }
+    dessinerEvenements();
+    return Promise.resolve();
+  }
+
+  function chargerEvenements() {
+    return SionApi.listerEvenements()
+      .then(function (lignes) {
+        evenements.lignes = lignes;
+        evenements.charge = true;
+        dessinerEvenements();
+      })
+      .catch(function (err) {
+        afficherMessage($("msg-evenements"), SionApi.messageErreur(err));
+      });
+  }
+
+  function remplirListeEvenements(zone, liste) {
+    zone.textContent = "";
+    liste.forEach(function (e) {
+      var bouton = creer("button", "item-evenement");
+      bouton.type = "button";
+
+      var date = creer("span", "evt-date");
+      var d = dateUtc(e.date_debut);
+      date.appendChild(creer("strong", null, String(d.getUTCDate())));
+      date.appendChild(creer("span", null, d.toLocaleDateString("fr-FR", { month: "short", timeZone: "UTC" }).replace(".", "")));
+      bouton.appendChild(date);
+
+      var bloc = creer("span", "item-texte");
+      bloc.appendChild(creer("strong", null, e.titre));
+      var sous = [heureCourte(e.heure_debut), e.lieu].filter(Boolean).join(" · ");
+      bloc.appendChild(creer("span", "item-sous", sous || dateLongue(e.date_debut)));
+      bouton.appendChild(bloc);
+
+      bouton.addEventListener("click", function () { ouvrirEvenement(e.id); });
+      zone.appendChild(bouton);
+    });
+  }
+
+  function dessinerEvenements() {
+    var aujour = aujourdhui();
+    var avenir = evenements.lignes
+      .filter(function (e) { return e.date_debut >= aujour; })
+      .sort(function (a, b) { return cleEvenement(a) < cleEvenement(b) ? -1 : 1; });
+    var passes = evenements.lignes
+      .filter(function (e) { return e.date_debut < aujour; })
+      .sort(function (a, b) { return cleEvenement(a) < cleEvenement(b) ? 1 : -1; });
+
+    remplirListeEvenements($("liste-evt-avenir"), avenir);
+    remplirListeEvenements($("liste-evt-passes"), passes);
+    $("titre-evt-avenir").hidden = avenir.length === 0;
+    $("titre-evt-passes").hidden = passes.length === 0;
+    $("evt-vide").hidden = evenements.lignes.length > 0;
+  }
+
+  function ouvrirEvenement(id) {
+    var e = evenements.lignes.filter(function (x) { return x.id === id; })[0];
+    if (!e) { return; }
+    evenementCourant = e;
+
+    $("evt-titre-detail").textContent = e.titre;
+    $("evt-quand").textContent = dateLongue(e.date_debut) + (e.heure_debut ? " à " + heureCourte(e.heure_debut) : "");
+
+    var lignes = [];
+    if (e.lieu) { lignes.push(["Lieu", e.lieu]); }
+    if (e.description) { lignes.push(["Description", e.description]); }
+    if (e.infos) { lignes.push(["Informations complémentaires", e.infos]); }
+    var dl = $("evt-infos");
+    dl.textContent = "";
+    lignes.forEach(function (l) {
+      dl.appendChild(creer("dt", null, l[0]));
+      dl.appendChild(creer("dd", "texte-long", l[1]));
+    });
+    dl.hidden = lignes.length === 0;
+
+    $("evt-actions").hidden = !peutEvenements();
+    afficherMessage($("msg-evenement"), "");
+    montrer("evenement");
+  }
+
+  function ouvrirFormulaireEvenement(e) {
+    modeEvenement = e ? { type: "modification", id: e.id } : { type: "creation" };
+    $("titre-form-evt").textContent = e ? "Modifier l'événement" : "Nouvel événement";
+    $("evt-titre").value = e ? e.titre : "";
+    $("evt-date").value = e ? e.date_debut : "";
+    $("evt-heure").value = e && e.heure_debut ? e.heure_debut.slice(0, 5) : "";
+    $("evt-lieu").value = e && e.lieu ? e.lieu : "";
+    $("evt-description").value = e && e.description ? e.description : "";
+    $("evt-infos").value = e && e.infos ? e.infos : "";
+    afficherMessage($("msg-evt-form"), "");
+    montrer("evenement-form");
+  }
+
+  function initEvenements() {
+    $("btn-evt-ajouter").addEventListener("click", function () { ouvrirFormulaireEvenement(null); });
+    $("btn-evt-retour").addEventListener("click", function () { ouvrirEvenements(); });
+    $("btn-evt-modifier").addEventListener("click", function () {
+      if (evenementCourant) { ouvrirFormulaireEvenement(evenementCourant); }
+    });
+
+    $("btn-evt-annuler").addEventListener("click", function () {
+      if (modeEvenement.type === "modification" && evenementCourant) {
+        montrer("evenement");
+      } else {
+        ouvrirEvenements();
+      }
+    });
+
+    $("btn-evt-supprimer").addEventListener("click", function () {
+      var e = evenementCourant;
+      var bouton = this;
+      if (!e) { return; }
+      if (!window.confirm("Supprimer l'événement « " + e.titre + " » ? Cette action est définitive.")) {
+        return;
+      }
+      bouton.disabled = true;
+      SionApi.supprimerEvenement(e.id)
+        .then(function () {
+          evenementCourant = null;
+          return chargerEvenements();
+        })
+        .then(function () {
+          ouvrirEvenements();
+          afficherMessage($("msg-evenements"), "L'événement a été supprimé.", "ok");
+        })
+        .catch(function (err) {
+          afficherMessage($("msg-evenement"), SionApi.messageErreur(err));
+        })
+        .then(function () { bouton.disabled = false; });
+    });
+
+    $("form-evenement").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var zone = $("msg-evt-form");
+      var bouton = $("btn-evt-enregistrer");
+
+      var titre = $("evt-titre").value.trim();
+      var date = $("evt-date").value;
+      if (!titre) {
+        afficherMessage(zone, "Le titre est obligatoire.");
+        return;
+      }
+      if (!date) {
+        afficherMessage(zone, "La date est obligatoire.");
+        return;
+      }
+
+      var champs = {
+        titre: titre,
+        date_debut: date,
+        heure_debut: $("evt-heure").value || null,
+        lieu: $("evt-lieu").value.trim() || null,
+        description: $("evt-description").value.trim() || null,
+        infos: $("evt-infos").value.trim() || null
+      };
+
+      var creation = modeEvenement.type === "creation";
+      var idModifie = modeEvenement.id;
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      bouton.textContent = "Enregistrement…";
+
+      var action = creation
+        ? SionApi.creerEvenement(champs)
+        : SionApi.modifierEvenement(idModifie, champs);
+
+      action
+        .then(function (idCree) {
+          return chargerEvenements().then(function () { return creation ? idCree : idModifie; });
+        })
+        .then(function (id) {
+          if (creation) {
+            ouvrirEvenements();
+            afficherMessage($("msg-evenements"), "L'événement a été créé.", "ok");
+          } else {
+            ouvrirEvenement(id);
+            afficherMessage($("msg-evenement"), "Les modifications ont été enregistrées.", "ok");
+          }
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Enregistrer";
+        });
+    });
+  }
+
   /* ---------- Mot de passe oublié ---------- */
 
   var DELAI_RENVOI = 60;
@@ -1941,6 +2180,7 @@
     initResponsabilites();
     initDroits();
     initStatut();
+    initEvenements();
     initOubli();
     initConfidentialite();
 
@@ -1959,9 +2199,19 @@
       detailOrigine = "membres";
       ouvrirMembres();
     });
-    $("onglet-responsables").addEventListener("click", function () {
+    $("onglet-evenements").addEventListener("click", function () {
+      afficherMessage($("msg-evenements"), "");
+      ouvrirEvenements();
+    });
+    $("onglet-plus").addEventListener("click", function () {
+      montrer("plus");
+    });
+    $("menu-responsables").addEventListener("click", function () {
       detailOrigine = "responsables";
       ouvrirResponsables();
+    });
+    $("menu-confidentialite").addEventListener("click", function () {
+      ouvrirConfidentialite("plus");
     });
 
     SionApi.surChangementSession(function (evenement) {

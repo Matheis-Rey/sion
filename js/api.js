@@ -55,6 +55,10 @@
     if (texte.indexOf("rate limit") !== -1 || texte.indexOf("too many") !== -1) {
       return "Trop de tentatives. Patientez quelques minutes puis réessayez.";
     }
+    // Refus de la base de données (règles de sécurité) : message toujours en français
+    if (texte.indexOf("row-level security") !== -1 || texte.indexOf("permission denied") !== -1) {
+      return "Vous n'avez pas l'autorisation d'effectuer cette action.";
+    }
     // Messages écrits en français par les règles du serveur
     if (code === "P0001" || code === "42501") {
       return err.message;
@@ -315,6 +319,56 @@
       .then(verifier);
   }
 
+  /* ---------- Événements ---------- */
+
+  var COLONNES_EVENEMENT = "id, titre, description, date_debut, heure_debut, lieu, infos";
+
+  function listerEvenements() {
+    return client.from("evenements").select(COLONNES_EVENEMENT).then(verifier);
+  }
+
+  function creerEvenement(champs) {
+    return client
+      .from("evenements")
+      .insert(champs)
+      .select("id")
+      .then(verifier)
+      .then(function (lignes) {
+        if (!lignes || lignes.length === 0) {
+          throw new Error("permission denied");
+        }
+        return lignes[0].id;
+      });
+  }
+
+  function modifierEvenement(id, champs) {
+    return client
+      .from("evenements")
+      .update(champs)
+      .eq("id", id)
+      .select("id")
+      .then(verifier)
+      .then(function (lignes) {
+        if (!lignes || lignes.length === 0) {
+          throw new Error("permission denied");
+        }
+      });
+  }
+
+  function supprimerEvenement(id) {
+    return client
+      .from("evenements")
+      .delete()
+      .eq("id", id)
+      .select("id")
+      .then(verifier)
+      .then(function (lignes) {
+        if (!lignes || lignes.length === 0) {
+          throw new Error("permission denied");
+        }
+      });
+  }
+
   /* ---------- Statut des membres ---------- */
 
   function convertirVisiteur(membreId, email, principal, secondaires) {
@@ -438,7 +492,7 @@
   }
 
   window.SionApi = {
-    version: "10",
+    version: "11",
     connecter: connecter,
     deconnecter: deconnecter,
     utilisateur: utilisateur,
@@ -465,6 +519,10 @@
     definirAutorisation: definirAutorisation,
     creerCompte: creerCompte,
     changerMdpInitial: changerMdpInitial,
+    listerEvenements: listerEvenements,
+    creerEvenement: creerEvenement,
+    modifierEvenement: modifierEvenement,
+    supprimerEvenement: supprimerEvenement,
     convertirVisiteur: convertirVisiteur,
     desactiverMembre: desactiverMembre,
     reactiverMembre: reactiverMembre,
