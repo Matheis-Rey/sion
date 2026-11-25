@@ -12,7 +12,7 @@
     "Dirigeant", "Membre du Conseil", "Responsable évangélisation", "Responsable"
   ];
 
-  var VERSION = "9";
+  var VERSION = "10";
 
   var etat = vide();
   var reference = { communes: null, departements: null };
@@ -49,6 +49,14 @@
 
   function peutNommer() {
     return estPasteur() || etat.permissions.indexOf("nommer_responsables") !== -1;
+  }
+
+  function peutDesactiver() {
+    return estPasteur() || etat.permissions.indexOf("desactiver_membres") !== -1;
+  }
+
+  function peutSupprimer() {
+    return estPasteur() || etat.permissions.indexOf("supprimer_membres") !== -1;
   }
 
   function nomDepartement(id) {
@@ -347,6 +355,14 @@
         }
         return SionApi.chargerMaFiche(user.id).then(function (donnees) {
           var m = donnees.membre;
+          if (m && m.statut === "desactive") {
+            vueMessage(
+              "Compte désactivé",
+              "Votre compte a été désactivé. Pour toute question, contactez un responsable de l'Église.",
+              false
+            );
+            return null;
+          }
           if (!m || !m.compte_actif || m.statut !== "membre") {
             vueMessage(
               "Compte non activé",
@@ -596,6 +612,7 @@
     var resultat = annuaire.membres.filter(function (m) {
       if (filtre === "membre" && m.statut !== "membre") { return false; }
       if (filtre === "visiteur" && m.statut !== "visiteur") { return false; }
+      if (filtre === "desactive" && m.statut !== "desactive") { return false; }
       if (!requete) { return true; }
       var contenu = normaliser([
         m.prenom, m.nom, m.commune, m.quartier, nomDepartementPrincipal(m.departements)
@@ -685,6 +702,8 @@
     $("d-actions").hidden = !gerer;
     emailDetail = "";
     afficherAcces(m);
+    afficherConversion(m);
+    afficherStatut(m);
     $("form-nommer").hidden = true;
     $("btn-nommer").hidden = false;
     afficherResponsabilites();
@@ -725,6 +744,187 @@
       redessinerInfos();
     }).catch(function () {
       /* les informations de base restent affichées */
+    });
+  }
+
+  /* ---------- Personne de passage, désactivation, suppression ---------- */
+
+  function afficherConversion(m) {
+    var visible = peutGerer() && m.statut === "visiteur";
+    $("carte-conversion").hidden = !visible;
+    $("form-convertir").hidden = true;
+    $("btn-convertir").hidden = false;
+  }
+
+  function afficherStatut(m) {
+    var soiMeme = !!etat.membre && m.id === etat.membre.id;
+    var peutD = peutDesactiver() && m.statut !== "visiteur" && !soiMeme;
+    var peutS = peutSupprimer() && !soiMeme;
+    $("carte-statut").hidden = !(peutD || peutS);
+    if (!(peutD || peutS)) { return; }
+
+    var etatTexte = "Personne de passage.";
+    if (m.statut === "membre") { etatTexte = "Membre actif."; }
+    if (m.statut === "desactive") { etatTexte = "Membre désactivé : il n'a plus accès à l'application."; }
+    $("statut-etat").textContent = etatTexte;
+
+    $("btn-desactiver").hidden = !peutD;
+    $("btn-desactiver").textContent = m.statut === "desactive" ? "Réactiver ce membre" : "Désactiver ce membre";
+    $("zone-suppression").hidden = !peutS;
+    $("suppr-confirm").value = "";
+    afficherMessage($("msg-suppr"), "");
+  }
+
+  function apresChangementStatut(m, message) {
+    annuaire.charge = false;
+    return chargerAnnuaire().then(function () {
+      ouvrirDetail(m.id);
+      afficherMessage($("msg-detail"), message, "ok");
+    });
+  }
+
+  function initStatut() {
+    // Transformer une personne de passage en membre
+    $("btn-convertir").addEventListener("click", function () {
+      remplirSelect($("conv-dept"), optionsDepartements(), "Aucun", "");
+      var zone = $("conv-secondaires");
+      zone.textContent = "";
+      optionsDepartements().forEach(function (d) {
+        var etiquette = creer("label", "ligne-case");
+        var caseCochee = creer("input");
+        caseCochee.type = "checkbox";
+        caseCochee.value = d.valeur;
+        etiquette.appendChild(caseCochee);
+        etiquette.appendChild(document.createTextNode(" " + d.libelle));
+        zone.appendChild(etiquette);
+      });
+      $("conv-email").value = "";
+      afficherMessage($("msg-conv"), "");
+      $("form-convertir").hidden = false;
+      this.hidden = true;
+    });
+
+    $("conv-dept").addEventListener("change", function () {
+      var principal = this.value;
+      var cases = $("conv-secondaires").querySelectorAll("input[type=checkbox]");
+      for (var i = 0; i < cases.length; i++) {
+        var identique = principal !== "" && cases[i].value === principal;
+        if (identique) { cases[i].checked = false; }
+        cases[i].disabled = identique;
+      }
+    });
+
+    $("btn-conv-annuler").addEventListener("click", function () {
+      $("form-convertir").hidden = true;
+      $("btn-convertir").hidden = false;
+    });
+
+    $("form-convertir").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var m = detailCourant;
+      var zone = $("msg-conv");
+      var bouton = $("btn-conv-ok");
+      var email = $("conv-email").value.trim();
+      if (!m) { return; }
+
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        afficherMessage(zone, "Saisissez une adresse e-mail valide.");
+        return;
+      }
+
+      var secondaires = [];
+      var cases = $("conv-secondaires").querySelectorAll("input[type=checkbox]");
+      for (var i = 0; i < cases.length; i++) {
+        if (cases[i].checked) { secondaires.push(Number(cases[i].value)); }
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      bouton.textContent = "Enregistrement…";
+
+      SionApi.convertirVisiteur(
+        m.id,
+        email || null,
+        $("conv-dept").value ? Number($("conv-dept").value) : null,
+        secondaires
+      )
+        .then(function () {
+          return apresChangementStatut(
+            m,
+            nomComplet(m) + " est maintenant membre. Ajoutez sa photo, puis créez son accès."
+          );
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Transformer en membre";
+        });
+    });
+
+    // Désactiver / réactiver
+    $("btn-desactiver").addEventListener("click", function () {
+      var m = detailCourant;
+      var bouton = this;
+      if (!m) { return; }
+
+      var reactiver = m.statut === "desactive";
+      if (!reactiver && !window.confirm("Désactiver " + nomComplet(m) + " ? Il n'aura plus accès à l'application et ses responsabilités seront retirées.")) {
+        return;
+      }
+
+      bouton.disabled = true;
+      var action = reactiver ? SionApi.reactiverMembre(m.id) : SionApi.desactiverMembre(m.id);
+      action
+        .then(function () {
+          return apresChangementStatut(
+            m,
+            reactiver ? nomComplet(m) + " a été réactivé." : nomComplet(m) + " a été désactivé."
+          );
+        })
+        .catch(function (err) {
+          afficherMessage($("msg-detail"), SionApi.messageErreur(err));
+        })
+        .then(function () { bouton.disabled = false; });
+    });
+
+    // Suppression définitive
+    $("btn-supprimer").addEventListener("click", function () {
+      var m = detailCourant;
+      var zone = $("msg-suppr");
+      var bouton = this;
+      if (!m) { return; }
+
+      if ($("suppr-confirm").value.trim().toUpperCase() !== "SUPPRIMER") {
+        afficherMessage(zone, "Tapez SUPPRIMER pour confirmer la suppression.");
+        return;
+      }
+      if (!window.confirm("Supprimer définitivement " + nomComplet(m) + " ? Cette action est irréversible.")) {
+        return;
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      bouton.textContent = "Suppression…";
+
+      SionApi.supprimerMembre(m.id)
+        .then(function () {
+          detailCourant = null;
+          annuaire.charge = false;
+          respons = { lignes: [], pasteurs: [] };
+          return ouvrirMembres();
+        })
+        .then(function () {
+          afficherMessage($("msg-membres"), "La fiche de " + nomComplet(m) + " a été supprimée.", "ok");
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Supprimer définitivement";
+        });
     });
   }
 
@@ -1740,6 +1940,7 @@
     initAcces();
     initResponsabilites();
     initDroits();
+    initStatut();
     initOubli();
     initConfidentialite();
 

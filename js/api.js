@@ -8,6 +8,7 @@
   var FONCTION_CREER_COMPTE = "creer-compte";
   var FONCTION_CHANGER_MDP = "changer-mdp-initial-";
   var FONCTION_REINITIALISER_MDP = "reinitialiser-mdp";
+  var FONCTION_SUPPRIMER_MEMBRE = "supprimer-membre";
 
   var client = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY, {
     auth: {
@@ -249,7 +250,7 @@
       .select("member_id, department_id, statut, members!member_id(prenom, nom, photo_path)")
       .then(verifier)
       .then(function (lignes) {
-        return lignes.map(function (l) {
+        return lignes.filter(function (l) { return !!l.members; }).map(function (l) {
           var m = Array.isArray(l.members) ? l.members[0] : l.members;
           return {
             membreId: l.member_id,
@@ -312,6 +313,31 @@
     return client
       .rpc("definir_autorisation", { p_member: membreId, p_code: code, p_actif: actif })
       .then(verifier);
+  }
+
+  /* ---------- Statut des membres ---------- */
+
+  function convertirVisiteur(membreId, email, principal, secondaires) {
+    return client
+      .rpc("convertir_visiteur", {
+        p_member: membreId,
+        p_email: email,
+        p_dept_principal: principal,
+        p_dept_secondaires: secondaires
+      })
+      .then(verifier);
+  }
+
+  function desactiverMembre(membreId) {
+    return client.rpc("desactiver_membre", { p_member: membreId }).then(verifier);
+  }
+
+  function reactiverMembre(membreId) {
+    return client.rpc("reactiver_membre", { p_member: membreId }).then(verifier);
+  }
+
+  function supprimerMembre(membreId) {
+    return appelerFonction(FONCTION_SUPPRIMER_MEMBRE, { membre_id: membreId });
   }
 
   /* ---------- Fonctions serveur (accès et mot de passe) ---------- */
@@ -412,7 +438,7 @@
   }
 
   window.SionApi = {
-    version: "9",
+    version: "10",
     connecter: connecter,
     deconnecter: deconnecter,
     utilisateur: utilisateur,
@@ -439,6 +465,10 @@
     definirAutorisation: definirAutorisation,
     creerCompte: creerCompte,
     changerMdpInitial: changerMdpInitial,
+    convertirVisiteur: convertirVisiteur,
+    desactiverMembre: desactiverMembre,
+    reactiverMembre: reactiverMembre,
+    supprimerMembre: supprimerMembre,
     demanderCode: demanderCode,
     reinitialiserMdp: reinitialiserMdp,
     messageErreur: messageErreur
