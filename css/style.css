@@ -265,7 +265,10 @@ body.avec-onglets { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)
 
 .onglet {
   flex: 1;
+  min-width: 0;
   min-height: 56px;
+  padding: 0 2px;
+  font-size: 0.82rem;
   border: 0;
   background: var(--creme);
   color: var(--dore-fonce);
@@ -423,4 +426,97 @@ input[type="range"] {
   background: var(--absence);
   border-color: var(--absence);
   color: #FFFFFF;
+}
+
+/* Menu Plus */
+.menu-liste { list-style: none; margin: 0; padding: 0; }
+
+.item-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 64px;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--dore);
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: var(--encre);
+  font: inherit;
+  text-align: left;
+}
+
+.item-menu span { font-size: 0.9rem; color: var(--dore-fonce); }
+
+/* Événements */
+.sous-titre-page {
+  margin: 18px 0 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: var(--dore-fonce);
+}
+
+.item-evenement {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--dore);
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: var(--encre);
+  font: inherit;
+  text-align: left;
+}
+
+.evt-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  background: var(--vert);
+  color: var(--creme);
+  line-height: 1.1;
+}
+
+.evt-date strong { font-size: 1.25rem; }
+.evt-date span { font-size: 0.75rem; text-transform: uppercase; }
+
+.texte-long { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--dore-fonce);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--encre);
+  font: inherit;
+  resize: vertical;
+}
+
+textarea:focus-visible,
+input[type="date"]:focus-visible,
+input[type="time"]:focus-visible { outline: 3px solid var(--dore); outline-offset: 2px; }
+
+input[type="date"],
+input[type="time"] {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--dore-fonce);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--encre);
+  font: inherit;
 }
