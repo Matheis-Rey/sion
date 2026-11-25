@@ -51,7 +51,7 @@
       <button id="btn-oubli" class="bouton-texte" type="button">Mot de passe oublié ?</button><br>
       <button id="lien-conf-connexion" class="bouton-texte" type="button">Politique de confidentialité</button>
     </p>
-    <p class="version">Version 9 · scripts non à jour</p>
+    <p class="version">Version 10 · scripts non à jour</p>
   </main>
 </div>
 
@@ -275,7 +275,7 @@
       <label class="ligne-case"><input id="v-baptemes" type="checkbox"> Afficher mes baptêmes</label>
     </section>
     <p class="liens"><button id="lien-conf-fiche" class="bouton-texte" type="button">Politique de confidentialité</button></p>
-    <p class="version">Version 9 · scripts non à jour</p>
+    <p class="version">Version 10 · scripts non à jour</p>
   </main>
 </div>
 
@@ -293,6 +293,7 @@
         <option value="tous">Tous</option>
         <option value="membre">Membres</option>
         <option value="visiteur">Personnes de passage</option>
+        <option value="desactive">Membres désactivés</option>
       </select>
     </div>
 
@@ -356,6 +357,40 @@
       <h3 class="sous-titre-carte">Autorisations</h3>
       <div id="liste-autorisations"></div>
       <p id="msg-droits" class="message" role="status" hidden></p>
+    </section>
+    <section id="carte-conversion" class="carte" hidden>
+      <h2>Personne de passage</h2>
+      <p class="aide">Si cette personne décide de rester dans l'Église, transformez sa fiche en fiche de membre. Vous pourrez ensuite ajouter sa photo et créer son accès.</p>
+      <button id="btn-convertir" class="bouton bouton-secondaire" type="button">Transformer en membre</button>
+      <form id="form-convertir" hidden novalidate>
+        <label for="conv-email">Adresse e-mail (facultatif)</label>
+        <input id="conv-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254">
+
+        <label for="conv-dept">Département principal</label>
+        <select id="conv-dept"></select>
+
+        <details class="deroulant">
+          <summary>Départements secondaires</summary>
+          <div id="conv-secondaires"></div>
+        </details>
+
+        <p id="msg-conv" class="message" role="alert" hidden></p>
+        <button id="btn-conv-ok" class="bouton" type="submit">Transformer en membre</button>
+        <button id="btn-conv-annuler" class="bouton bouton-secondaire" type="button">Annuler</button>
+      </form>
+    </section>
+    <section id="carte-statut" class="carte" hidden>
+      <h2>Statut</h2>
+      <p id="statut-etat" class="aide"></p>
+      <button id="btn-desactiver" class="bouton bouton-secondaire" type="button">Désactiver ce membre</button>
+      <div id="zone-suppression" hidden>
+        <h3 class="sous-titre-carte">Suppression définitive</h3>
+        <p class="aide">Supprime la fiche, la photo et le compte de connexion. Cette action est irréversible. Pour confirmer, tapez SUPPRIMER.</p>
+        <label class="sr-only" for="suppr-confirm">Tapez SUPPRIMER pour confirmer</label>
+        <input id="suppr-confirm" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="SUPPRIMER">
+        <p id="msg-suppr" class="message" role="alert" hidden></p>
+        <button id="btn-supprimer" class="bouton bouton-danger" type="button">Supprimer définitivement</button>
+      </div>
     </section>
   </main>
 </div>
@@ -456,10 +491,10 @@
   <button id="onglet-responsables" class="onglet" type="button">Responsables</button>
 </nav>
 
-<script src="js/config.js?v=9"></script>
-<script src="js/supabase.js?v=9"></script>
-<script src="js/api.js?v=9"></script>
-<script src="js/photo.js?v=9"></script>
-<script src="js/app.js?v=9"></script>
+<script src="js/config.js?v=10"></script>
+<script src="js/supabase.js?v=10"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/photo.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
 </body>
 </html>
