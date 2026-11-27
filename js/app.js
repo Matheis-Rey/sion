@@ -2,9 +2,9 @@
   "use strict";
 
   var SITUATIONS = ["Marié(e)", "Célibataire", "Veuf(ve)", "Concubinage", "Fiancé(e)"];
-  var VUES = ["chargement", "connexion", "oubli", "confidentialite", "message", "mdp", "fiche", "membres", "responsables", "plus", "evenements", "evenement", "evenement-form", "detail", "ajout", "photo"];
-  var VUES_CONNECTEES = ["fiche", "membres", "responsables", "plus", "evenements", "evenement", "evenement-form", "detail", "ajout", "photo"];
-  var VUES_AVEC_ONGLETS = ["fiche", "membres", "responsables", "plus", "evenements", "evenement", "detail"];
+  var VUES = ["chargement", "connexion", "oubli", "confidentialite", "message", "mdp", "fiche", "membres", "responsables", "plus", "priere", "priere-recues", "priere-detail", "evenements", "evenement", "evenement-form", "detail", "ajout", "photo"];
+  var VUES_CONNECTEES = ["fiche", "membres", "responsables", "plus", "priere", "priere-recues", "priere-detail", "evenements", "evenement", "evenement-form", "detail", "ajout", "photo"];
+  var VUES_AVEC_ONGLETS = ["fiche", "membres", "responsables", "plus", "priere", "priere-recues", "priere-detail", "evenements", "evenement", "detail"];
   var PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var PHOTO_MAX = 10 * 1024 * 1024;
   var FONCTIONS = [
@@ -12,7 +12,7 @@
     "Dirigeant", "Membre du Conseil", "Responsable évangélisation", "Responsable"
   ];
 
-  var VERSION = "11";
+  var VERSION = "12";
 
   var etat = vide();
   var reference = { communes: null, departements: null };
@@ -22,6 +22,10 @@
   var detailOrigine = "membres";
   var detailContact = [];
   var respons = { lignes: [], pasteurs: [] };
+  var STATUTS_PRIERE = { recu: "Reçu", en_cours: "En cours de prière", effectuee: "Prière effectuée" };
+  var prieres = { mes: [], recues: [] };
+  var sujetCourant = null;
+  var origineSujet = "mes";
   var evenements = { lignes: [], charge: false };
   var evenementCourant = null;
   var modeEvenement = { type: "creation" };
@@ -85,7 +89,8 @@
       actif = "onglet-fiche";
     } else if (nom === "evenements" || nom === "evenement") {
       actif = "onglet-evenements";
-    } else if (nom === "plus" || nom === "responsables" || (nom === "detail" && detailOrigine === "responsables")) {
+    } else if (nom === "plus" || nom === "responsables" || nom === "priere" || nom === "priere-recues" ||
+               nom === "priere-detail" || (nom === "detail" && detailOrigine === "responsables")) {
       actif = "onglet-plus";
     }
     ["onglet-fiche", "onglet-membres", "onglet-evenements", "onglet-plus"].forEach(function (id) {
@@ -324,6 +329,8 @@
       oubliEmail = "";
       evenements = { lignes: [], charge: false };
       evenementCourant = null;
+      prieres = { mes: [], recues: [] };
+      sujetCourant = null;
       arreterMinuteur();
       $("champ-mdp").value = "";
       afficherMessage($("msg-connexion"), "");
@@ -1593,6 +1600,337 @@
     });
   }
 
+  /* ---------- Sujets de prière ---------- */
+
+  function peutRecevoirPriere() {
+    return estPasteur() ||
+      (etat.permissions.indexOf("gerer_priere") !== -1 &&
+       etat.departements.some(function (d) { return d.nom === "Intercession"; }));
+  }
+
+  function montrerPlus() {
+    $("li-priere-recues").hidden = !peutRecevoirPriere();
+    montrer("plus");
+  }
+
+  function dateHeure(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? "" : d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function extrait(texteLong, n) {
+    return texteLong.length > n ? texteLong.slice(0, n - 1) + "…" : texteLong;
+  }
+
+  function majCompteur(champ, zone, max) {
+    var reste = max - champ.value.length;
+    zone.textContent = reste + (reste > 1 ? " caractères restants" : " caractère restant");
+  }
+
+  function plusRecentD(a, b) {
+    return a.created_at < b.created_at ? 1 : -1;
+  }
+
+  function dessinerListePrieres(zone, lignes, avecAuteur) {
+    zone.textContent = "";
+    lignes.sort(plusRecentD).forEach(function (s) {
+      var li = creer("li");
+      var bouton = creer("button", "item-membre");
+      bouton.type = "button";
+
+      var bloc = creer("span", "item-texte");
+      var titre = creer("strong", null, avecAuteur ? (nomComplet(s) || "Membre") : extrait(s.contenu, 70));
+      titre.appendChild(creer("span", "badge", STATUTS_PRIERE[s.statut] || s.statut));
+      bloc.appendChild(titre);
+      var sous = (avecAuteur ? extrait(s.contenu, 70) + " · " : "") + dateHeure(s.created_at);
+      bloc.appendChild(creer("span", "item-sous", sous));
+      bouton.appendChild(bloc);
+
+      bouton.addEventListener("click", function () {
+        ouvrirSujetPriere(s, avecAuteur ? "recues" : "mes");
+      });
+      li.appendChild(bouton);
+      zone.appendChild(li);
+    });
+  }
+
+  function dessinerMesPrieres() {
+    dessinerListePrieres($("liste-mes-prieres"), prieres.mes.slice(), false);
+    $("priere-vide").hidden = prieres.mes.length > 0;
+  }
+
+  function chargerMesPrieres() {
+    return SionApi.listerMesSujets(etat.membre.id)
+      .then(function (lignes) {
+        prieres.mes = lignes;
+        dessinerMesPrieres();
+      })
+      .catch(function (err) {
+        afficherMessage($("msg-priere"), SionApi.messageErreur(err));
+      });
+  }
+
+  function ouvrirPriere() {
+    afficherMessage($("msg-priere"), "");
+    majCompteur($("priere-texte"), $("priere-compteur"), 500);
+    montrer("priere");
+    return chargerMesPrieres();
+  }
+
+  function dessinerPrieresRecues() {
+    var filtre = $("filtre-priere").value;
+    var lignes = prieres.recues.filter(function (s) { return filtre === "tous" || s.statut === filtre; });
+    $("compteur-priere").textContent = lignes.length + (lignes.length > 1 ? " sujets" : " sujet");
+    dessinerListePrieres($("liste-prieres-recues"), lignes.slice(), true);
+    $("priere-recues-vide").hidden = lignes.length > 0;
+  }
+
+  function ouvrirPrieresRecues() {
+    afficherMessage($("msg-priere-recues"), "");
+    montrer("priere-recues");
+    return SionApi.listerSujetsRecus()
+      .then(function (lignes) {
+        prieres.recues = lignes;
+        dessinerPrieresRecues();
+      })
+      .catch(function (err) {
+        afficherMessage($("msg-priere-recues"), SionApi.messageErreur(err));
+      });
+  }
+
+  function chargerMessagesPriere() {
+    var s = sujetCourant;
+    if (!s) { return Promise.resolve(); }
+    return SionApi.listerMessagesPriere(s.id)
+      .then(function (lignes) {
+        if (sujetCourant !== s) { return; }
+        var estAuteur = s.auteur === etat.membre.id;
+        var zone = $("pd-messages");
+        zone.textContent = "";
+
+        lignes.sort(function (a, b) { return a.created_at < b.created_at ? -1 : 1; }).forEach(function (m) {
+          var moi = m.expediteur === etat.membre.id;
+          var qui = "Équipe d'intercession";
+          if (moi) {
+            qui = "Vous";
+          } else if (!estAuteur && m.expediteur === s.auteur) {
+            qui = nomComplet(s) || "Le membre";
+          }
+          var bloc = creer("div", "message-priere" + (moi ? " moi" : ""));
+          bloc.appendChild(creer("p", "qui", qui + " · " + dateHeure(m.created_at)));
+          bloc.appendChild(creer("p", "texte-long", m.contenu));
+          zone.appendChild(bloc);
+        });
+        $("pd-aucun-message").hidden = lignes.length > 0;
+      })
+      .catch(function (err) {
+        afficherMessage($("msg-priere-detail"), SionApi.messageErreur(err));
+      });
+  }
+
+  function ouvrirSujetPriere(s, origine) {
+    origineSujet = origine;
+    sujetCourant = s;
+    var auteur = s.auteur === etat.membre.id;
+
+    $("pd-auteur").hidden = auteur;
+    $("pd-auteur").textContent = auteur ? "" : "Demande de " + (nomComplet(s) || "un membre");
+    $("btn-pd-fiche").hidden = auteur || !s.auteur;
+    $("pd-date").textContent = "Envoyé le " + dateHeure(s.created_at);
+    $("pd-statut").textContent = STATUTS_PRIERE[s.statut] || s.statut;
+    $("pd-texte").textContent = s.contenu;
+    $("pd-actions-auteur").hidden = !auteur;
+    $("form-pd-modifier").hidden = true;
+    $("pd-statuts").hidden = !peutRecevoirPriere();
+    $("pd-select-statut").value = s.statut;
+    $("pd-message").value = "";
+    $("pd-messages").textContent = "";
+    $("pd-aucun-message").hidden = true;
+    afficherMessage($("msg-priere-detail"), "");
+    afficherMessage($("msg-pd-message"), "");
+    montrer("priere-detail");
+    chargerMessagesPriere();
+  }
+
+  function mettreAJourSujetLocal(s) {
+    [prieres.mes, prieres.recues].forEach(function (liste) {
+      liste.forEach(function (x) {
+        if (x.id === s.id) {
+          x.contenu = s.contenu;
+          x.statut = s.statut;
+        }
+      });
+    });
+  }
+
+  function retourListePriere() {
+    return origineSujet === "recues" ? ouvrirPrieresRecues() : ouvrirPriere();
+  }
+
+  function initPriere() {
+    $("menu-priere").addEventListener("click", ouvrirPriere);
+    $("menu-priere-recues").addEventListener("click", ouvrirPrieresRecues);
+    $("btn-fiche-priere").addEventListener("click", ouvrirPriere);
+    $("filtre-priere").addEventListener("change", dessinerPrieresRecues);
+    $("btn-priere-retour").addEventListener("click", retourListePriere);
+
+    $("priere-texte").addEventListener("input", function () {
+      majCompteur(this, $("priere-compteur"), 500);
+    });
+
+    $("form-priere").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var zone = $("msg-priere");
+      var bouton = $("btn-priere-envoyer");
+      var contenu = $("priere-texte").value.trim();
+
+      if (!contenu) {
+        afficherMessage(zone, "Écrivez votre sujet de prière.");
+        return;
+      }
+      if (contenu.length > 500) {
+        afficherMessage(zone, "Le sujet ne doit pas dépasser 500 caractères.");
+        return;
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      bouton.textContent = "Envoi…";
+
+      SionApi.creerSujet(contenu)
+        .then(function () {
+          $("priere-texte").value = "";
+          majCompteur($("priere-texte"), $("priere-compteur"), 500);
+          return chargerMesPrieres();
+        })
+        .then(function () {
+          afficherMessage(zone, "Votre sujet a été envoyé. Il n'est visible que par vous et l'équipe d'Intercession autorisée.", "ok");
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () {
+          bouton.disabled = false;
+          bouton.textContent = "Envoyer";
+        });
+    });
+
+    $("btn-pd-fiche").addEventListener("click", function () {
+      var s = sujetCourant;
+      if (!s) { return; }
+      assurerAnnuaire().then(function () { ouvrirDetail(s.auteur, "membres"); });
+    });
+
+    $("btn-pd-modifier").addEventListener("click", function () {
+      if (!sujetCourant) { return; }
+      $("pd-edit").value = sujetCourant.contenu;
+      afficherMessage($("msg-pd-modifier"), "");
+      $("form-pd-modifier").hidden = false;
+    });
+
+    $("btn-pd-annuler").addEventListener("click", function () {
+      $("form-pd-modifier").hidden = true;
+    });
+
+    $("form-pd-modifier").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var s = sujetCourant;
+      var zone = $("msg-pd-modifier");
+      var bouton = $("btn-pd-enregistrer");
+      var contenu = $("pd-edit").value.trim();
+      if (!s) { return; }
+
+      if (!contenu) {
+        afficherMessage(zone, "Le sujet ne peut pas être vide.");
+        return;
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      SionApi.modifierSujet(s.id, contenu)
+        .then(function () {
+          s.contenu = contenu;
+          mettreAJourSujetLocal(s);
+          $("pd-texte").textContent = contenu;
+          $("form-pd-modifier").hidden = true;
+          afficherMessage($("msg-priere-detail"), "Votre sujet a été modifié.", "ok");
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () { bouton.disabled = false; });
+    });
+
+    $("btn-pd-supprimer").addEventListener("click", function () {
+      var s = sujetCourant;
+      var bouton = this;
+      if (!s) { return; }
+      if (!window.confirm("Supprimer ce sujet de prière ? Il sera retiré de la boîte de réception et ne pourra pas être récupéré.")) {
+        return;
+      }
+      bouton.disabled = true;
+      SionApi.supprimerSujet(s.id)
+        .then(function () {
+          prieres.mes = prieres.mes.filter(function (x) { return x.id !== s.id; });
+          sujetCourant = null;
+          return ouvrirPriere();
+        })
+        .then(function () {
+          afficherMessage($("msg-priere"), "Votre sujet a été supprimé.", "ok");
+        })
+        .catch(function (err) {
+          afficherMessage($("msg-priere-detail"), SionApi.messageErreur(err));
+        })
+        .then(function () { bouton.disabled = false; });
+    });
+
+    $("btn-pd-statut").addEventListener("click", function () {
+      var s = sujetCourant;
+      var bouton = this;
+      if (!s) { return; }
+      var statut = $("pd-select-statut").value;
+
+      bouton.disabled = true;
+      SionApi.changerStatutPriere(s.id, statut)
+        .then(function () {
+          s.statut = statut;
+          mettreAJourSujetLocal(s);
+          $("pd-statut").textContent = STATUTS_PRIERE[statut];
+          afficherMessage($("msg-priere-detail"), "Le statut est mis à jour : " + STATUTS_PRIERE[statut] + ".", "ok");
+        })
+        .catch(function (err) {
+          afficherMessage($("msg-priere-detail"), SionApi.messageErreur(err));
+        })
+        .then(function () { bouton.disabled = false; });
+    });
+
+    $("form-pd-message").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var s = sujetCourant;
+      var zone = $("msg-pd-message");
+      var bouton = $("btn-pd-envoyer");
+      var contenu = $("pd-message").value.trim();
+      if (!s) { return; }
+
+      if (!contenu) {
+        afficherMessage(zone, "Écrivez votre message.");
+        return;
+      }
+
+      afficherMessage(zone, "");
+      bouton.disabled = true;
+      SionApi.envoyerMessagePriere(s.id, contenu)
+        .then(function () {
+          $("pd-message").value = "";
+          return chargerMessagesPriere();
+        })
+        .catch(function (err) {
+          afficherMessage(zone, SionApi.messageErreur(err));
+        })
+        .then(function () { bouton.disabled = false; });
+    });
+  }
+
   /* ---------- Événements ---------- */
 
   function peutEvenements() {
@@ -2181,6 +2519,7 @@
     initDroits();
     initStatut();
     initEvenements();
+    initPriere();
     initOubli();
     initConfidentialite();
 
@@ -2203,9 +2542,7 @@
       afficherMessage($("msg-evenements"), "");
       ouvrirEvenements();
     });
-    $("onglet-plus").addEventListener("click", function () {
-      montrer("plus");
-    });
+    $("onglet-plus").addEventListener("click", montrerPlus);
     $("menu-responsables").addEventListener("click", function () {
       detailOrigine = "responsables";
       ouvrirResponsables();

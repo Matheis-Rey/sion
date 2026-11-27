@@ -319,6 +319,100 @@
       .then(verifier);
   }
 
+  /* ---------- Sujets de prière ---------- */
+
+  function listerMesSujets(membreId) {
+    return client
+      .from("sujets_priere")
+      .select("id, contenu, statut, created_at, auteur")
+      .eq("auteur", membreId)
+      .then(verifier);
+  }
+
+  function listerSujetsRecus() {
+    return client
+      .from("sujets_priere")
+      .select("id, contenu, statut, created_at, auteur, members!auteur(prenom, nom, photo_path)")
+      .then(verifier)
+      .then(function (lignes) {
+        return lignes.map(function (l) {
+          var m = Array.isArray(l.members) ? l.members[0] : l.members;
+          l.prenom = m ? m.prenom : "";
+          l.nom = m ? m.nom : "";
+          l.photo_path = m ? m.photo_path : null;
+          delete l.members;
+          return l;
+        });
+      });
+  }
+
+  function creerSujet(contenu) {
+    return client
+      .from("sujets_priere")
+      .insert({ contenu: contenu })
+      .select("id")
+      .then(verifier)
+      .then(function (lignes) {
+        if (!lignes || lignes.length === 0) {
+          throw new Error("permission denied");
+        }
+        return lignes[0].id;
+      });
+  }
+
+  function modifierSujet(id, contenu) {
+    return client
+      .from("sujets_priere")
+      .update({ contenu: contenu })
+      .eq("id", id)
+      .select("id")
+      .then(verifier)
+      .then(function (lignes) {
+        if (!lignes || lignes.length === 0) {
+          throw new Error("permission denied");
+        }
+      });
+  }
+
+  function supprimerSujet(id) {
+    return client
+      .from("sujets_priere")
+      .delete()
+      .eq("id", id)
+      .select("id")
+      .then(verifier)
+      .then(function (lignes) {
+        if (!lignes || lignes.length === 0) {
+          throw new Error("permission denied");
+        }
+      });
+  }
+
+  function changerStatutPriere(id, statut) {
+    return client.rpc("changer_statut_priere", { p_id: id, p_statut: statut }).then(verifier);
+  }
+
+  function listerMessagesPriere(sujetId) {
+    return client
+      .from("messages_priere")
+      .select("id, expediteur, contenu, created_at")
+      .eq("sujet_id", sujetId)
+      .then(verifier);
+  }
+
+  function envoyerMessagePriere(sujetId, contenu) {
+    return client
+      .from("messages_priere")
+      .insert({ sujet_id: sujetId, contenu: contenu })
+      .select("id")
+      .then(verifier)
+      .then(function (lignes) {
+        if (!lignes || lignes.length === 0) {
+          throw new Error("permission denied");
+        }
+      });
+  }
+
   /* ---------- Événements ---------- */
 
   var COLONNES_EVENEMENT = "id, titre, description, date_debut, heure_debut, lieu, infos";
@@ -492,7 +586,7 @@
   }
 
   window.SionApi = {
-    version: "11",
+    version: "12",
     connecter: connecter,
     deconnecter: deconnecter,
     utilisateur: utilisateur,
@@ -519,6 +613,14 @@
     definirAutorisation: definirAutorisation,
     creerCompte: creerCompte,
     changerMdpInitial: changerMdpInitial,
+    listerMesSujets: listerMesSujets,
+    listerSujetsRecus: listerSujetsRecus,
+    creerSujet: creerSujet,
+    modifierSujet: modifierSujet,
+    supprimerSujet: supprimerSujet,
+    changerStatutPriere: changerStatutPriere,
+    listerMessagesPriere: listerMessagesPriere,
+    envoyerMessagePriere: envoyerMessagePriere,
     listerEvenements: listerEvenements,
     creerEvenement: creerEvenement,
     modifierEvenement: modifierEvenement,
