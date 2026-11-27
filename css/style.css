@@ -520,3 +520,16 @@ input[type="time"] {
   color: var(--encre);
   font: inherit;
 }
+
+/* Sujets de prière */
+.message-priere {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--dore);
+  border-radius: 10px;
+  background: #FFFFFF;
+}
+
+.message-priere.moi { background: var(--creme); border-color: var(--vert); }
+.message-priere .qui { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--dore-fonce); }
+.message-priere .texte-long { margin: 4px 0 0; }
