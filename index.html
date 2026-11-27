@@ -51,7 +51,7 @@
       <button id="btn-oubli" class="bouton-texte" type="button">Mot de passe oublié ?</button><br>
       <button id="lien-conf-connexion" class="bouton-texte" type="button">Politique de confidentialité</button>
     </p>
-    <p class="version">Version 11 · scripts non à jour</p>
+    <p class="version">Version 12 · scripts non à jour</p>
   </main>
 </div>
 
@@ -216,6 +216,7 @@
       <h1 id="fiche-nom"></h1>
       <p id="fiche-fonctions" class="fonctions"></p>
       <button id="btn-photo" class="bouton-texte" type="button">Changer ma photo</button>
+      <button id="btn-fiche-priere" class="bouton bouton-secondaire" type="button">Sujet de prière</button>
     </section>
 
     <p id="msg-fiche" class="message" role="status" hidden></p>
@@ -275,7 +276,7 @@
       <label class="ligne-case"><input id="v-baptemes" type="checkbox"> Afficher mes baptêmes</label>
     </section>
     <p class="liens"><button id="lien-conf-fiche" class="bouton-texte" type="button">Politique de confidentialité</button></p>
-    <p class="version">Version 11 · scripts non à jour</p>
+    <p class="version">Version 12 · scripts non à jour</p>
   </main>
 </div>
 
@@ -481,6 +482,18 @@
     <h1 class="titre-page">Plus</h1>
     <ul class="menu-liste">
       <li>
+        <button id="menu-priere" class="item-menu" type="button">
+          <strong>Mes sujets de prière</strong>
+          <span>Envoyer un sujet et suivre les réponses</span>
+        </button>
+      </li>
+      <li id="li-priere-recues" hidden>
+        <button id="menu-priere-recues" class="item-menu" type="button">
+          <strong>Sujets de prière reçus</strong>
+          <span>Boîte de réception de l'Intercession</span>
+        </button>
+      </li>
+      <li>
         <button id="menu-responsables" class="item-menu" type="button">
           <strong>Responsables</strong>
           <span>Les responsables des départements</span>
@@ -493,6 +506,93 @@
         </button>
       </li>
     </ul>
+  </main>
+</div>
+
+<!-- Sujets de prière : mes sujets -->
+<div id="vue-priere" class="vue" hidden>
+  <main class="contenu">
+    <h1 class="titre-page">Mes sujets de prière</h1>
+    <form id="form-priere" class="carte" novalidate>
+      <h2>Nouveau sujet</h2>
+      <p class="aide">Votre sujet n'est visible que par vous, le Pasteur et l'équipe d'Intercession autorisée.</p>
+      <label for="priere-texte">Votre sujet de prière</label>
+      <textarea id="priere-texte" rows="4" maxlength="500"></textarea>
+      <p id="priere-compteur" class="aide">500 caractères restants</p>
+      <p id="msg-priere" class="message" role="alert" hidden></p>
+      <button id="btn-priere-envoyer" class="bouton" type="submit">Envoyer</button>
+    </form>
+    <h2 class="sous-titre-page">Mes demandes</h2>
+    <ul id="liste-mes-prieres" class="liste"></ul>
+    <p id="priere-vide" class="aide" hidden>Vous n'avez pas encore envoyé de sujet.</p>
+  </main>
+</div>
+
+<!-- Sujets de prière : boîte de réception -->
+<div id="vue-priere-recues" class="vue" hidden>
+  <main class="contenu">
+    <h1 class="titre-page">Sujets de prière reçus</h1>
+    <label for="filtre-priere">Afficher</label>
+    <select id="filtre-priere">
+      <option value="tous">Tous</option>
+      <option value="recu">Reçus</option>
+      <option value="en_cours">En cours de prière</option>
+      <option value="effectuee">Prière effectuée</option>
+    </select>
+    <p id="msg-priere-recues" class="message" role="status" hidden></p>
+    <p id="compteur-priere" class="aide"></p>
+    <ul id="liste-prieres-recues" class="liste"></ul>
+    <p id="priere-recues-vide" class="aide" hidden>Aucun sujet pour le moment.</p>
+  </main>
+</div>
+
+<!-- Sujets de prière : détail et messages -->
+<div id="vue-priere-detail" class="vue" hidden>
+  <main class="contenu">
+    <button id="btn-priere-retour" class="bouton-texte" type="button">← Retour</button>
+    <p id="msg-priere-detail" class="message" role="status" hidden></p>
+    <article class="carte">
+      <p id="pd-auteur" class="fonctions" hidden></p>
+      <button id="btn-pd-fiche" class="bouton-texte" type="button" hidden>Voir la fiche du membre</button>
+      <p id="pd-date" class="aide"></p>
+      <p><span id="pd-statut" class="badge"></span></p>
+      <p id="pd-texte" class="texte-long"></p>
+
+      <div id="pd-actions-auteur" class="actions" hidden>
+        <button id="btn-pd-modifier" class="bouton bouton-secondaire" type="button">Modifier</button>
+        <button id="btn-pd-supprimer" class="bouton bouton-danger" type="button">Supprimer</button>
+      </div>
+
+      <form id="form-pd-modifier" hidden novalidate>
+        <label for="pd-edit">Modifier votre sujet</label>
+        <textarea id="pd-edit" rows="4" maxlength="500"></textarea>
+        <p id="msg-pd-modifier" class="message" role="alert" hidden></p>
+        <button id="btn-pd-enregistrer" class="bouton" type="submit">Enregistrer</button>
+        <button id="btn-pd-annuler" class="bouton bouton-secondaire" type="button">Annuler</button>
+      </form>
+
+      <div id="pd-statuts" hidden>
+        <label for="pd-select-statut">Statut de la prière</label>
+        <select id="pd-select-statut">
+          <option value="recu">Reçu</option>
+          <option value="en_cours">En cours de prière</option>
+          <option value="effectuee">Prière effectuée</option>
+        </select>
+        <button id="btn-pd-statut" class="bouton" type="button">Mettre à jour le statut</button>
+      </div>
+    </article>
+
+    <section class="carte">
+      <h2>Messages</h2>
+      <div id="pd-messages"></div>
+      <p id="pd-aucun-message" class="aide">Aucun message pour le moment.</p>
+      <form id="form-pd-message" novalidate>
+        <label for="pd-message">Votre message</label>
+        <textarea id="pd-message" rows="3" maxlength="1000"></textarea>
+        <p id="msg-pd-message" class="message" role="alert" hidden></p>
+        <button id="btn-pd-envoyer" class="bouton" type="submit">Envoyer le message</button>
+      </form>
+    </section>
   </main>
 </div>
 
@@ -575,10 +675,10 @@
   <button id="onglet-plus" class="onglet" type="button">Plus</button>
 </nav>
 
-<script src="js/config.js?v=11"></script>
-<script src="js/supabase.js?v=11"></script>
-<script src="js/api.js?v=11"></script>
-<script src="js/photo.js?v=11"></script>
-<script src="js/app.js?v=11"></script>
+<script src="js/config.js?v=12"></script>
+<script src="js/supabase.js?v=12"></script>
+<script src="js/api.js?v=12"></script>
+<script src="js/photo.js?v=12"></script>
+<script src="js/app.js?v=12"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-var VERSION = "sion-v11";
+var VERSION = "sion-v12";
 var FICHIERS = [
   "./",
   "index.html",
